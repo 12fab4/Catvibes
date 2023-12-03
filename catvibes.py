@@ -83,6 +83,6 @@ if __name__ =="__main__":
     try:
         curses.wrapper(ui)
     finally:
-        lib.music_player.kill()
+        lib.music_player.proc.kill()
         curses.curs_set(1)
         data.save_all()

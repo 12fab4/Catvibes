@@ -4,12 +4,13 @@ from pathlib import Path
 import json
 import os
 import subprocess as sp
+import signal
 
 
 screen: object # placeholdervar to be assigned to the standartscreen
 
 yt = ytmusicapi.YTMusic()
-music_player = sp.Popen("echo")
+
 
 # placeholder vars for maxx and maxy values
 maxx: int
@@ -78,6 +79,7 @@ class playlist_tab(display_tab):
         self.on_key("p",self.play_song)
         self.on_key("\n",self.play_song)
         self.on_key("d", self.remove_song)
+        self.on_key(" ",self.play_or_pause)
 
     def disp(self):
         for i,song in enumerate(self.playlist.val):
@@ -85,6 +87,7 @@ class playlist_tab(display_tab):
                 screen.addstr(i+1,0,song_string(song_data.val[song]),curses.A_REVERSE)
             else:
                 screen.addstr(i+1,0,song_string(song_data.val[song]))
+        delline(len(self.playlist.val))
         screen.refresh()
     
     def add_song(self):
@@ -102,8 +105,11 @@ class playlist_tab(display_tab):
     
     def play_song(self):
         play_song(self.playlist.val[self.line])
+    
+    def play_or_pause(self):
+        music_player.toggle()
 
-class datamanager():
+class datamanager:
     """a class for saving and loading variables to files"""
     def __init__(self):
         # files[i] and vars[i] belong together
@@ -123,7 +129,7 @@ class datamanager():
     def save(self,var: pointer, file = Path):
         """saves a variable to a file"""
         with open(file,"w") as f:
-            f.write(json.dumps(var.val,indent=1))
+            f.write(json.dumps(var.val,indent=4))
     
     def save_all(self):
         """saves all var:file associations"""
@@ -140,7 +146,34 @@ class datamanager():
             with open(file,"x") as f:
                 f.write(json.dumps(content))
 
+class music_player:
+    """a class for playing files"""
+    def __init__(self):
+        self.proc = sp.Popen("echo")
+        self.playing = False
+    
+    def play(self,file:Path):
+        self.proc.kill()
+        self.proc = sp.Popen(["ffplay", "-v", "0", "-nodisp", "-autoexit", file])
+        self.playing = True
+    
+    def pause(self):
+        self.playing = False
+        self.proc.send_signal(signal.SIGSTOP)
+    
+    def continu(self):
+        self.playing = True
+        self.proc.send_signal(signal.SIGCONT)
+    
+    def toggle(self):
+        if self.playing:
+            self.pause()
+        else:
+            self.continu()
 
+
+
+music_player = music_player()
 
 def delline(y:int, refresh=False):
     screen.move(y,0)
@@ -160,10 +193,11 @@ def inputchoice(choices:list) -> int:
             key = int(key)
         except:
             if key == "\x1b":
-                return -1
+                key = 0
+                break
     for i in range(maxy-len(choices),maxy):
         delline(i+1)
-    return key -1
+    return key - 1
 
 def search():
     """asks and searches for a song on youtube and returns a corresponding song_info dict"""
@@ -217,7 +251,7 @@ def download_song(song_info:dict) -> None:
     song_id = song_info["videoId"]
     if Path.is_file(song_dir.joinpath(f"{song_id}")):
         return
-    request = sp.run(["yt-dlp", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "0", "-o", f"{song_dir}/{song_id}.mp3", f"https://www.youtube.com/watch?v={song_id}"],capture_output=True)
+    request = sp.run(["yt-dlp", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "0", "--embed-thumbnail", "--embed-metadata", "-o", f"{song_dir}/{song_id}.mp3", f"https://www.youtube.com/watch?v={song_id}"],capture_output=True)
     song_data.val[song_info["videoId"]] = song_info
     with open(data_dir.joinpath("data"),"r+") as data_file:
         data_file.write(json.dumps(song_data.val))
@@ -225,8 +259,7 @@ def download_song(song_info:dict) -> None:
 def play_song(id:str):
     """plays a song by its title in song_data"""
     global music_player
-    music_player.kill()
-    music_player = sp.Popen(["ffplay", "-v", "0", "-nodisp", "-autoexit", f"{song_dir}/{id}.mp3"])
+    music_player.play(f"{song_dir}/{id}.mp3")
 
 def song_string(song_info:dict) -> str:
     """returns a string representation for an song_info dict according to config"""
