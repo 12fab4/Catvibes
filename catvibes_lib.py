@@ -12,13 +12,14 @@ yt = ytmusicapi.YTMusic()
 music_player = sp.Popen("echo")
 
 # placeholder vars for maxx and maxy values
-maxx = int
-maxy = int
+maxx: int
+maxy: int
 
-main_dir = Path.home().joinpath("Musik/Catvibe")
-song_dir = main_dir.joinpath("songs")
-data_dir = main_dir.joinpath("data")
-playlist_dir = main_dir.joinpath("playlists")
+# placeholders for directories
+main_dir: Path
+song_dir: Path
+data_dir: Path
+playlist_dir: Path
 
 class pointer:
     """a bad implementation of pointers. use .val to retreive or set value"""
@@ -122,7 +123,7 @@ class datamanager():
     def save(self,var: pointer, file = Path):
         """saves a variable to a file"""
         with open(file,"w") as f:
-            f.write(json.dumps(var.val))
+            f.write(json.dumps(var.val,indent=1))
     
     def save_all(self):
         """saves all var:file associations"""
@@ -229,7 +230,7 @@ def play_song(id:str):
 
 def song_string(song_info:dict) -> str:
     """returns a string representation for an song_info dict according to config"""
-    string = config.val["Songstring"]
+    string = config.val["songstring"]
     string = string.replace("TITLE",song_info["title"])
     string = string.replace("ARTIST",song_info["artists"][0]["name"])
     string = string.replace("LENGHT",song_info["duration"])
