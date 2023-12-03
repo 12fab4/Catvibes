@@ -15,8 +15,6 @@ music_player = sp.Popen("echo")
 maxx = int
 maxy = int
 
-config = {"results":3, "Songstring":"TITLE - ARTIST - LENGHT"}
-
 main_dir = Path.home().joinpath("Musik/Catvibe")
 song_dir = main_dir.joinpath("songs")
 data_dir = main_dir.joinpath("data")
@@ -31,6 +29,7 @@ class pointer:
 
 playlists = pointer({})
 song_data = pointer({})
+config = pointer({})
 
 class display_tab:
     """# base_class for other tabs"""
@@ -176,7 +175,7 @@ def search():
         e = str(e).replace('\n','')
         info(f"Something went wrong searching Youtube: {e}")
         return
-    num_results = config["results"]
+    num_results = config.val["results"]
     choices = [song_string(results[i]) for i in range(num_results)]
     chosen = inputchoice(choices)
     if chosen == -1:
@@ -230,7 +229,7 @@ def play_song(id:str):
 
 def song_string(song_info:dict) -> str:
     """returns a string representation for an song_info dict according to config"""
-    string = config["Songstring"]
+    string = config.val["Songstring"]
     string = string.replace("TITLE",song_info["title"])
     string = string.replace("ARTIST",song_info["artists"][0]["name"])
     string = string.replace("LENGHT",song_info["duration"])

@@ -6,6 +6,7 @@ from pathlib import Path
 import curses
 import json
 import catvibes_lib as lib
+import shutil
 
 
 main_dir = lib.main_dir
@@ -15,10 +16,17 @@ playlist_dir = lib.playlist_dir
 
 playlists:lib.pointer = lib.playlists
 song_data:lib.pointer = lib.song_data
+config:lib.pointer = lib.config
 
 data = lib.datamanager()
 
+workdir = Path.cwd()
+default_config = workdir.joinpath("config")
+if not Path.is_file(main_dir.joinpath("config")):
+    shutil.copy2(default_config, main_dir.joinpath("config"))
+
 data.load(data_dir.joinpath("data"), song_data,{})
+data.load(main_dir.joinpath("config"),config)
 
 data.create_if_not_exsisting(playlist_dir.joinpath("favorites"),[])
 
