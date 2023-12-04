@@ -145,6 +145,13 @@ class playlist_tab(display_tab):
         global music_player
         music_player.prev()
 
+class songs_tab(playlist_tab):
+    def __init__(self,screen):
+        super().__init__(screen,"Songs", pointer([]))
+        self.playlist.val = list(song_data.val.keys())
+        self.maxlines = len(self.playlist.val)
+
+
 class datamanager:
     """a class for saving and loading variables to files"""
     def __init__(self):
@@ -250,7 +257,7 @@ def delline(screen, y:int, refresh=False):
 
 def inputchoice(screen, choices:list) -> int:
     """displays a number of choices to the user and returns the chosen number. -1 if exited"""
-    maxy, = screen.getmaxyx()
+    maxy, _ = getmax(screen)
     for i,choice in enumerate(choices):
         screen.addstr(maxy-len(choices)+i+1,0,f"{i+1}. {choice}")
     screen.refresh()
@@ -264,7 +271,7 @@ def inputchoice(screen, choices:list) -> int:
                 key = 0
                 break
     for i in range(maxy-len(choices),maxy):
-        delline(i+1)
+        delline(screen, i+1)
     screen.refresh()
     return key - 1
 
@@ -290,8 +297,8 @@ def search(screen):
 
 def inputstr(screen, question:str) -> str|None:
     """asks for a simple textinput"""
-    maxy, = screen.getmaxyx()
-    delline(maxy)
+    maxy, _ = getmax(screen)
+    delline(screen, maxy)
     screen.addstr(maxy,0,question)
     screen.refresh()
     text = ""
@@ -306,17 +313,17 @@ def inputstr(screen, question:str) -> str|None:
         screen.addstr(maxy, len(question), text+"   ")
         screen.refresh()
         key = screen.getkey()
-    delline(maxy,True)
+    delline(screen, maxy, True)
     return text
 
 def info(screen, text:str, important = True) -> None:
     """prints a message at the bottom of the screen"""
-    maxy, = screen.getmaxyx()
+    maxy, _ = getmax(screen)
     screen.addstr(maxy,0,text + " press any key to continue")
     screen.refresh()
     if important:
         screen.getkey()
-        delline(maxy,True)
+        delline(screen, maxy, True)
 
 def download_song(song_info:dict) -> None:
     """downloads a song from a song_info dict returned by yt.search()"""
@@ -345,3 +352,7 @@ def song_string(song_info:dict) -> str:
     string = string.replace("LENGHT",song_info["duration"])
     return string
 
+def getmax(screen) -> tuple[int, int]:
+    """returns the bottom most corner of the screen"""
+    maxy, maxx = screen.getmaxyx()
+    return maxy - 1, maxx - 1
