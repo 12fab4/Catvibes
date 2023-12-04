@@ -8,14 +8,10 @@ import signal
 import random
 
 
-screen: object # placeholdervar to be assigned to the standartscreen
 
 yt = ytmusicapi.YTMusic()
 
 
-# placeholder vars for maxx and maxy values
-maxx: int
-maxy: int
 
 # placeholders for directories
 main_dir: Path
@@ -37,16 +33,13 @@ config = pointer({})
 class display_tab:
     """# base_class for other tabs"""
 
-    def __init__(self,title:str, linestart:int = 0, minx = 0, maxx_offset = 0, miny = 1, maxy_offset = 0):
-        global maxx, maxy
+    def __init__(self,window,title:str, linestart:int = 0):
+        self.screen = window
         self.title = title
         self.keyhandler = {}
         self.line = linestart
         self.maxlines = 0
-        self.minx = minx
-        self.miny = miny
-        self.maxx = maxx - maxx_offset
-        self.maxy = maxy - maxy_offset
+        self.maxy, self.maxx = self.screen.getmaxyx()
         self.on_key("KEY_UP",self.up)
         self.on_key("KEY_DOWN",self.down)
 
@@ -72,8 +65,8 @@ class display_tab:
 class playlist_tab(display_tab):
     """a tab for simply interacting with playlists"""
 
-    def __init__(self, title:str, playlist:pointer, linestart:int = 0):
-        super().__init__(title, linestart=linestart)
+    def __init__(self, window, title:str, playlist:pointer, linestart:int = 0):
+        super().__init__(window, title, linestart=linestart)
         self.playlist = playlist
         self.maxlines = len(playlist.val)
         self.on_key("f", self.add_song)
@@ -88,41 +81,38 @@ class playlist_tab(display_tab):
     def disp(self):
         start = 0
         end = 0
-        offset = 0
         playlist_view = []
-        max_rows = self.maxy - self.miny
-        if max_rows > len(self.playlist.val):
+        self.maxy, self.maxx = self.screen.getmaxyx()
+        if self.maxy > len(self.playlist.val):  # is the window big enough for all songs
             start = 0
-            offset = 0
             end = len(self.playlist.val)
             playlist_view = self.playlist.val
-        else:
-            hidden = len(self.playlist.val) - max_rows
-            if self.line < hidden:
+        else:                                      # if not, then
+            half = int(self.maxy / 2)
+            if self.line < half:
                 start = 0
-                offset = 0
-                end = max_rows
-            elif self.line > len(self.playlist.val) - hidden:
+                end = self.maxy
+            elif self.line > len(self.playlist.val) - half:
                 end = len(self.playlist.val)
-                start = end - max_rows
-                offset = start
+                start = end - self.maxy
             else:
-                pass
+                start = self.line - half
+                end = self.line + half - 1
             
             playlist_view = self.playlist.val[start:end]
 
         for i,song in enumerate(playlist_view):
-            delline(i+self.miny)
-            if i == self.line - offset:
-                screen.addstr(i+self.miny,self.minx, song_string(song_data.val[song]),curses.A_REVERSE)
+            delline(self.screen, i)
+            if i == self.line - start:
+                self.screen.addstr(i,0, song_string(song_data.val[song]),curses.A_REVERSE)
             else:
-                screen.addstr(i+self.miny,self.minx, song_string(song_data.val[song]))
-        if max_rows - 1 > len(self.playlist.val):
-            delline(len(self.playlist.val)+self.miny)
-        screen.refresh()
+                self.screen.addstr(i,0, song_string(song_data.val[song]))
+        if self.maxy - 1 > len(self.playlist.val):
+            delline(self.screen, len(self.playlist.val))
+        self.screen.refresh()
     
     def add_song(self):
-        result = search()
+        result = search(self.screen)
         if result != None:
             self.playlist.val.append(result["videoId"])
             self.line = len(self.playlist.val) - 1
@@ -252,14 +242,15 @@ class music_player:
 
 music_player = music_player()
 
-def delline(y:int, refresh=False):
+def delline(screen, y:int, refresh=False):
     screen.move(y,0)
     screen.clrtoeol()
     if refresh:
         screen.refresh()
 
-def inputchoice(choices:list) -> int:
+def inputchoice(screen, choices:list) -> int:
     """displays a number of choices to the user and returns the chosen number. -1 if exited"""
+    maxy, = screen.getmaxyx()
     for i,choice in enumerate(choices):
         screen.addstr(maxy-len(choices)+i+1,0,f"{i+1}. {choice}")
     screen.refresh()
@@ -277,28 +268,29 @@ def inputchoice(choices:list) -> int:
     screen.refresh()
     return key - 1
 
-def search():
+def search(screen):
     """asks and searches for a song on youtube and returns a corresponding song_info dict"""
-    search = inputstr("Search Song: ")
+    search = inputstr(screen, "Search Song: ")
     if search == None:
         return
     try:
         results = yt.search(search, filter="songs")
     except Exception as e:
         e = str(e).replace('\n','')
-        info(f"Something went wrong searching Youtube: {e}")
+        info(screen, f"Something went wrong searching Youtube: {e}")
         return
     num_results = config.val["results"]
     choices = [song_string(results[i]) for i in range(num_results)]
-    chosen = inputchoice(choices)
+    chosen = inputchoice(screen, choices)
     if chosen == -1:
         return
     chosen = results[chosen]
     download_song(chosen)
     return chosen
 
-def inputstr(question:str) -> str|None:
+def inputstr(screen, question:str) -> str|None:
     """asks for a simple textinput"""
+    maxy, = screen.getmaxyx()
     delline(maxy)
     screen.addstr(maxy,0,question)
     screen.refresh()
@@ -317,7 +309,9 @@ def inputstr(question:str) -> str|None:
     delline(maxy,True)
     return text
 
-def info(text:str, important = True) -> None:
+def info(screen, text:str, important = True) -> None:
+    """prints a message at the bottom of the screen"""
+    maxy, = screen.getmaxyx()
     screen.addstr(maxy,0,text + " press any key to continue")
     screen.refresh()
     if important:

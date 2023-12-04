@@ -46,12 +46,12 @@ with os.scandir(lib.playlist_dir) as files:                # handels import of p
 
 def ui(screen):
     """the main function running the UI"""
-    lib.screen = screen
-    lib.maxx, lib.maxy = curses.COLS - 1, curses.LINES - 1
+    maxy, maxx = screen.getmaxyx()
     curses.curs_set(0)
     curses.use_default_colors()
 
-    tabs = [lib.playlist_tab(name,playlist) for name,playlist in playlists.val.items()]
+    playlist_screen = screen.derwin(1,0)
+    tabs = [lib.playlist_tab(playlist_screen, name, playlist) for name,playlist in playlists.val.items()]
     tab = 0
 
     def tabbar():
@@ -87,6 +87,8 @@ def ui(screen):
                 key = -1
             lib.music_player.query()
         screen.timeout(-1)
+        maxy, maxx = screen.getmaxyx()
+        playlist_screen.resize(maxy - 1, maxx)
 
 
 if __name__ =="__main__":
