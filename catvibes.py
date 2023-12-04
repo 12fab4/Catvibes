@@ -49,6 +49,7 @@ def ui(screen):
     lib.screen = screen
     lib.maxx, lib.maxy = curses.COLS - 1, curses.LINES - 1
     curses.curs_set(0)
+    curses.use_default_colors()
 
     tabs = [lib.playlist_tab(name,playlist) for name,playlist in playlists.val.items()]
     tab = 0
@@ -76,7 +77,16 @@ def ui(screen):
         else:
             tabs[tab].handle_key(key)
         tabs[tab].disp()
-        key = screen.getkey()
+
+        screen.timeout(100)
+        key = -1
+        while key == -1:
+            try:
+                key = screen.getkey()
+            except curses.error:
+                key = -1
+            lib.music_player.query()
+        screen.timeout(-1)
 
 
 if __name__ =="__main__":
