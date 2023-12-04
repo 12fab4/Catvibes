@@ -8,7 +8,7 @@ import json
 import catvibes_lib as lib
 import shutil
 
-workdir = Path.cwd()
+workdir = Path(__file__).parent
 default_config_location = workdir.joinpath("config")
 config_location = Path.home().joinpath(".config/Catvibes/config")
 if not Path.is_file(config_location):
@@ -29,7 +29,6 @@ song_data:lib.pointer = lib.song_data
 
 
 
-
 data.load(lib.data_dir.joinpath("data"), song_data,{})                   # loads the song db
 
 data.create_if_not_exsisting(lib.playlist_dir.joinpath("favorites"),[])  # creates a default favorites playlist
@@ -37,7 +36,7 @@ data.create_if_not_exsisting(lib.playlist_dir.joinpath("favorites"),[])  # creat
 with os.scandir(lib.playlist_dir) as files:                # handels import of playlists (favorites is playlists)
     for f in files:
         with open(f,"r") as loaded_file:
-            name = loaded_file.name[loaded_file.name.rfind("/")+1:]
+            name = Path(f).stem
             temp = lib.pointer([])
             data.load(f,temp)
             playlists.val[name] = temp
@@ -51,11 +50,18 @@ def ui(screen):
     curses.curs_set(0)
     curses.use_default_colors()
 
-    playlist_screen = screen.derwin(maxy - 1, maxx,1,0)
+    playlist_screen_y_restrictions = (2,2)  # first value is space from top, second from bottom
+    playlist_screen = screen.derwin(maxy - sum(playlist_screen_y_restrictions) + 1, maxx, playlist_screen_y_restrictions[0], 0)
     music_player_screen = screen.derwin(maxy,0)
+
     tabs = [lib.songs_tab(playlist_screen)]
     tabs.extend([lib.playlist_tab(playlist_screen, name, playlist) for name,playlist in playlists.val.items()])
     tab = 0
+
+    lib.music_player = lib.music_player(music_player_screen)
+
+    screen.hline(1,0,"-", maxx)
+    screen.hline(maxy - 1,0,"-", maxx)
 
     def tabbar():
         """draws the tabbar"""
@@ -91,7 +97,7 @@ def ui(screen):
             lib.music_player.query()
         screen.timeout(-1)
         maxy, maxx = screen.getmaxyx()
-        playlist_screen.resize(maxy - 1, maxx)
+        playlist_screen.resize(maxy - sum(playlist_screen_y_restrictions), maxx)
 
 
 if __name__ =="__main__":

@@ -89,15 +89,16 @@ class playlist_tab(display_tab):
             playlist_view = self.playlist.val
         else:                                      # if not, then
             half = int(self.maxy / 2)
+            odd_max = 0 if half == self.maxy / 2 else 1
             if self.line < half:
                 start = 0
                 end = self.maxy
-            elif self.line > len(self.playlist.val) - half:
+            elif self.line > len(self.playlist.val) - half - 1:
                 end = len(self.playlist.val)
                 start = end - self.maxy
             else:
                 start = self.line - half
-                end = self.line + half - 1
+                end = self.line + half + odd_max
             
             playlist_view = self.playlist.val[start:end]
 
@@ -191,16 +192,21 @@ class datamanager:
 
 class music_player:
     """a class for playing files"""
-    def __init__(self):
+    def __init__(self, screen):
         self.playlist:list = []
         self.counter:int = -1
         self.proc = sp.Popen("echo")
         self.playing:bool = False
+        self.screen = screen
     
     def play(self,file:Path):
         self.proc.kill()
         self.proc = sp.Popen(["ffplay", "-v", "0", "-nodisp", "-autoexit", file])
         self.playing = True
+        id = file.stem
+        delline(self.screen,0)
+        self.screen.addstr(0,0,info_string(song_data.val[id]))
+        self.screen.refresh()
     
     def pause(self):
         self.playing = False
@@ -247,7 +253,7 @@ class music_player:
 
 
 
-music_player = music_player()
+music_player: music_player # placeholder for musicplayer
 
 def delline(screen, y:int, refresh=False):
     screen.move(y,0)
@@ -304,9 +310,9 @@ def inputstr(screen, question:str) -> str|None:
     text = ""
     key = screen.getkey()
     while key != "\n":
-        if key == "KEY_BACKSPACE":
+        if key == "\x7f": # enter
             text = text[:-1]
-        elif key == "\x1b":
+        elif key == "\x1b": # escape
             return
         else:
             text += key
@@ -347,6 +353,15 @@ def song_file(id:str) -> Path:
 def song_string(song_info:dict) -> str:
     """returns a string representation for an song_info dict according to config"""
     string = config.val["songstring"]
+    return string_replace(string, song_info)
+
+def info_string(song_info:dict) -> str:
+    """returns a string representing the currently playing track"""
+    string = config.val["infostring"]
+    return string_replace(string, song_info)
+
+def string_replace(string: str, song_info) -> str:
+    """replaces varoius KEYs in a string like TITLE with the info in the song_info dict"""
     string = string.replace("TITLE",song_info["title"])
     string = string.replace("ARTIST",song_info["artists"][0]["name"])
     string = string.replace("LENGHT",song_info["duration"])
