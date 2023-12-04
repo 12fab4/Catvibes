@@ -48,11 +48,13 @@ class display_tab:
         self.keyhandler[key] = f
 
     def up(self):
-        self.line = (self.line - 1) % self.maxlines
+        if self.maxlines > 0:
+            self.line = (self.line - 1) % self.maxlines
     
 
     def down(self):
-        self.line = (self.line + 1) % self.maxlines
+        if self.maxlines > 0:
+            self.line = (self.line + 1) % self.maxlines
     
 
     def disp(self):
@@ -71,18 +73,20 @@ class playlist_tab(display_tab):
         self.maxlines = len(playlist.val)
         self.on_key("f", self.add_song)
         self.on_key("p", self.play_song)
-        self.on_key("\n",self.play_song)
+        self.on_key("\n", self.play_song)
         self.on_key("d", self.remove_song)
         self.on_key(" ", self.play_or_pause)
         self.on_key("r", self.shuffle)
         self.on_key("n", self.next)
         self.on_key("b", self.prev) 
+        self.on_key("l", self.new_playlist)
 
     def disp(self):
         start = 0
         end = 0
         playlist_view = []
         self.maxy, self.maxx = self.screen.getmaxyx()
+        self.screen.clear()
         if self.maxy > len(self.playlist.val):  # is the window big enough for all songs
             start = 0
             end = len(self.playlist.val)
@@ -103,13 +107,10 @@ class playlist_tab(display_tab):
             playlist_view = self.playlist.val[start:end]
 
         for i,song in enumerate(playlist_view):
-            delline(self.screen, i)
             if i == self.line - start:
                 self.screen.addstr(i,0, song_string(song_data.val[song]),curses.A_REVERSE)
             else:
                 self.screen.addstr(i,0, song_string(song_data.val[song]))
-        if self.maxy - 1 > len(self.playlist.val):
-            delline(self.screen, len(self.playlist.val))
         self.screen.refresh()
     
     def add_song(self):
@@ -145,13 +146,18 @@ class playlist_tab(display_tab):
     def prev(self):
         global music_player
         music_player.prev()
+    
+    def new_playlist(self):
+        name = inputstr(self.screen, "Name of the playlist: ")
+        temp = pointer([])
+        data.load(playlist_dir.joinpath(name),temp, default=[])
+        playlists.val[name] = temp.val
 
 class songs_tab(playlist_tab):
     def __init__(self,screen):
         super().__init__(screen,"Songs", pointer([]))
         self.playlist.val = list(song_data.val.keys())
         self.maxlines = len(self.playlist.val)
-
 
 class datamanager:
     """a class for saving and loading variables to files"""
@@ -160,7 +166,7 @@ class datamanager:
        self.files = []
        self.vars = []   # contains pointers
     
-    def load(self, file: Path, to: pointer, default = "{}"):
+    def load(self, file: Path, to: pointer, default = {}):
         """loads and links a file to a variable. if the file is noneexsistent load default and create file"""
         self.create_if_not_exsisting(file, default)
         with open(file,"r") as loaded_file:
@@ -254,6 +260,7 @@ class music_player:
 
 
 music_player: music_player # placeholder for musicplayer
+data: datamanager          # placeholder for datamanager
 
 def delline(screen, y:int, refresh=False):
     screen.move(y,0)

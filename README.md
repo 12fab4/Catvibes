@@ -14,3 +14,5 @@ Space: play / pause
 n: next song
 
 b: previous song
+
+l: create a new playlist (currently requires restart)
