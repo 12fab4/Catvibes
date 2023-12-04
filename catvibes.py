@@ -14,10 +14,10 @@ config_location = Path.home().joinpath(".config/Catvibes/config")
 if not Path.is_file(config_location):
     shutil.copy2(default_config_location, config_location)
 
-data = lib.datamanager()
+lib.data = lib.datamanager()
 
 config:lib.pointer = lib.config
-data.load(config_location,config)
+lib.data.load(config_location,config)
 
 lib.main_dir = Path.home().joinpath(config.val["maindirectory"])
 lib.song_dir = lib.main_dir.joinpath("songs")
@@ -29,16 +29,16 @@ song_data:lib.pointer = lib.song_data
 
 
 
-data.load(lib.data_dir.joinpath("data"), song_data,{})                   # loads the song db
+lib.data.load(lib.data_dir.joinpath("data"), song_data,{})                   # loads the song db
 
-data.create_if_not_exsisting(lib.playlist_dir.joinpath("favorites"),[])  # creates a default favorites playlist
+lib.data.create_if_not_exsisting(lib.playlist_dir.joinpath("favorites"),[])  # creates a default favorites playlist
 
 with os.scandir(lib.playlist_dir) as files:                # handels import of playlists (favorites is playlists)
     for f in files:
         with open(f,"r") as loaded_file:
             name = Path(f).stem
             temp = lib.pointer([])
-            data.load(f,temp)
+            lib.data.load(f,temp)
             playlists.val[name] = temp
 
 
@@ -106,4 +106,4 @@ if __name__ =="__main__":
     finally:
         lib.music_player.proc.kill()
         curses.curs_set(1)
-        data.save_all()
+        lib.data.save_all()
