@@ -5,6 +5,7 @@ import json
 import os
 import subprocess as sp
 import signal
+import random
 
 
 screen: object # placeholdervar to be assigned to the standartscreen
@@ -36,16 +37,16 @@ config = pointer({})
 class display_tab:
     """# base_class for other tabs"""
 
-    def __init__(self,title:str, linestart:int = 0, minx = None | int, mymaxx:int = None | int, miny = None, mymaxy = None):
+    def __init__(self,title:str, linestart:int = 0, minx = 0, maxx_offset = 0, miny = 1, maxy_offset = 0):
         global maxx, maxy
         self.title = title
         self.keyhandler = {}
         self.line = linestart
         self.maxlines = 0
-        self.minx = minx or 0
-        self.miny = miny or 1
-        self.maxx = mymaxx or maxx
-        self.maxy = mymaxy or maxy
+        self.minx = minx
+        self.miny = miny
+        self.maxx = maxx - maxx_offset
+        self.maxy = maxy - maxy_offset
         self.on_key("KEY_UP",self.up)
         self.on_key("KEY_DOWN",self.down)
 
@@ -75,19 +76,49 @@ class playlist_tab(display_tab):
         super().__init__(title, linestart=linestart)
         self.playlist = playlist
         self.maxlines = len(playlist.val)
-        self.on_key("f",self.add_song)
-        self.on_key("p",self.play_song)
+        self.on_key("f", self.add_song)
+        self.on_key("p", self.play_song)
         self.on_key("\n",self.play_song)
         self.on_key("d", self.remove_song)
-        self.on_key(" ",self.play_or_pause)
+        self.on_key(" ", self.play_or_pause)
+        self.on_key("r", self.shuffle)
+        self.on_key("n", self.next)
+        self.on_key("b", self.prev) 
 
     def disp(self):
-        for i,song in enumerate(self.playlist.val):
-            if i == self.line:
-                screen.addstr(i+1,0,song_string(song_data.val[song]),curses.A_REVERSE)
+        start = 0
+        end = 0
+        offset = 0
+        playlist_view = []
+        max_rows = self.maxy - self.miny
+        if max_rows > len(self.playlist.val):
+            start = 0
+            offset = 0
+            end = len(self.playlist.val)
+            playlist_view = self.playlist.val
+        else:
+            hidden = len(self.playlist.val) - max_rows
+            if self.line < hidden:
+                start = 0
+                offset = 0
+                end = max_rows
+            elif self.line > len(self.playlist.val) - hidden:
+                end = len(self.playlist.val)
+                start = end - max_rows
+                offset = start
             else:
-                screen.addstr(i+1,0,song_string(song_data.val[song]))
-        delline(len(self.playlist.val))
+                pass
+            
+            playlist_view = self.playlist.val[start:end]
+
+        for i,song in enumerate(playlist_view):
+            delline(i+self.miny)
+            if i == self.line - offset:
+                screen.addstr(i+self.miny,self.minx, song_string(song_data.val[song]),curses.A_REVERSE)
+            else:
+                screen.addstr(i+self.miny,self.minx, song_string(song_data.val[song]))
+        if max_rows - 1 > len(self.playlist.val):
+            delline(len(self.playlist.val)+self.miny)
         screen.refresh()
     
     def add_song(self):
@@ -104,10 +135,25 @@ class playlist_tab(display_tab):
         self.line = self.line % self.maxlines
     
     def play_song(self):
-        play_song(self.playlist.val[self.line])
+        global music_player
+        music_player.add_list([song_file(self.playlist.val[i]) for i in range(self.line, self.maxlines)])
+    
+    def shuffle(self):
+        global music_player
+        if music_player.playlist == []:
+            music_player.add_list([song_file(self.playlist.val[i]) for i in range(self.maxlines)])
+        music_player.shuffle()
     
     def play_or_pause(self):
         music_player.toggle()
+    
+    def next(self):
+        global music_player
+        music_player.next()
+    
+    def prev(self):
+        global music_player
+        music_player.prev()
 
 class datamanager:
     """a class for saving and loading variables to files"""
@@ -149,8 +195,10 @@ class datamanager:
 class music_player:
     """a class for playing files"""
     def __init__(self):
+        self.playlist:list = []
+        self.counter:int = -1
         self.proc = sp.Popen("echo")
-        self.playing = False
+        self.playing:bool = False
     
     def play(self,file:Path):
         self.proc.kill()
@@ -170,6 +218,35 @@ class music_player:
             self.pause()
         else:
             self.continu()
+    
+    def add(self,file:Path):
+        self.playlist.append(file)
+        if self.counter == -1:
+            self.counter = 0
+            self.play(self.playlist[0])
+    
+    def add_list(self, songs:list[Path]):
+        for file in songs:
+            self.add(file)
+    
+    def query(self):
+        if self.proc.poll() != None:
+            if self.counter < len(self.playlist) - 1:
+                self.counter += 1
+                self.play(self.playlist[self.counter])
+    
+    def shuffle(self):
+        random.shuffle(self.playlist)
+        self.counter = 0
+        self.play(self.playlist[self.counter])
+    
+    def next(self):
+        self.counter = (self.counter + 1) % len(self.playlist)
+        self.play(self.playlist[self.counter])
+
+    def prev(self):
+        self.counter = (self.counter - 1) % len(self.playlist)
+        self.play(self.playlist[self.counter])
 
 
 
@@ -197,6 +274,7 @@ def inputchoice(choices:list) -> int:
                 break
     for i in range(maxy-len(choices),maxy):
         delline(i+1)
+    screen.refresh()
     return key - 1
 
 def search():
@@ -260,6 +338,10 @@ def play_song(id:str):
     """plays a song by its title in song_data"""
     global music_player
     music_player.play(f"{song_dir}/{id}.mp3")
+
+def song_file(id:str) -> Path:
+    """returns the Path to a song by id"""
+    return Path(f"{song_dir}/{id}.mp3")
 
 def song_string(song_info:dict) -> str:
     """returns a string representation for an song_info dict according to config"""
