@@ -1,12 +1,10 @@
-import ytmusicapi
-from ytmusicapi import YTMusic
-import subprocess as sp
 import os
 from pathlib import Path
 import curses
-import json
-import catvibes_lib as lib
 import shutil
+
+import catvibes_lib as lib
+
 
 workdir = Path(__file__).parent
 default_config_location = workdir.joinpath("config")
@@ -16,7 +14,7 @@ if not Path.is_file(config_location):
 
 lib.data = lib.datamanager()
 
-config:lib.pointer = lib.config
+config:lib.Pointer = lib.config
 lib.data.load(config_location,config)
 
 lib.main_dir = Path.home().joinpath(config.val["maindirectory"])
@@ -24,20 +22,22 @@ lib.song_dir = lib.main_dir.joinpath("songs")
 lib.data_dir = lib.main_dir.joinpath("data")
 lib.playlist_dir = lib.main_dir.joinpath("playlists")
 
-playlists:lib.pointer = lib.playlists
-song_data:lib.pointer = lib.song_data
+playlists:lib.Pointer = lib.playlists
+song_data:lib.Pointer = lib.song_data
 
 
+# loads the song db
+lib.data.load(lib.data_dir.joinpath("data"), song_data,{})
 
-lib.data.load(lib.data_dir.joinpath("data"), song_data,{})                   # loads the song db
+# creates a default favorites playlist
+lib.data.create_if_not_exsisting(lib.playlist_dir.joinpath("favorites"),[])
 
-lib.data.create_if_not_exsisting(lib.playlist_dir.joinpath("favorites"),[])  # creates a default favorites playlist
-
-with os.scandir(lib.playlist_dir) as files:                # handels import of playlists (favorites is playlists)
+# handels import of playlists (favorites is playlists)
+with os.scandir(lib.playlist_dir) as files:
     for f in files:
         with open(f,"r") as loaded_file:
             name = Path(f).stem
-            temp = lib.pointer([])
+            temp = lib.Pointer([])
             lib.data.load(f,temp)
             playlists.val[name] = temp
 
@@ -52,12 +52,15 @@ def ui(screen):
     curses.curs_set(0)
     curses.use_default_colors()
 
-    playlist_screen_y_restrictions = (2,1)  # first value is space from top, second from bottom
-    playlist_screen = screen.derwin(maxy - sum(playlist_screen_y_restrictions), maxx, playlist_screen_y_restrictions[0], 0)
+    # first value is space from top, second from bottom
+    y_restrictions = (2,1)
+    playlist_screen = screen.derwin(maxy - sum(y_restrictions), maxx, y_restrictions[0], 0)
     music_player_screen = screen.derwin(maxy,0)
 
     tabs = [lib.songs_tab(playlist_screen)]
-    tabs.extend([lib.playlist_tab(playlist_screen, name, playlist) for name,playlist in playlists.val.items()])
+    tabs.extend(
+        [lib.PlaylistTab(playlist_screen,name,playlist) for name,playlist in playlists.val.items()]
+        )
     tab = 0
 
     lib.music_player = lib.music_player_class(music_player_screen)
@@ -72,15 +75,15 @@ def ui(screen):
             else:
                 screen.addstr(0,cursor,t.title)
             cursor += len(t.title)+1
-        
+
         screen.hline(1,0,"-", maxx)
         screen.hline(maxy - 1,0,"-", maxx)
-    
+
     def resize():
         nonlocal maxx, maxy
         maxy, maxx = screen.getmaxyx()
         maxy, maxx = maxy - 1, maxx - 1
-        playlist_screen.resize(maxy - sum(playlist_screen_y_restrictions), maxx)
+        playlist_screen.resize(maxy - sum(y_restrictions), maxx)
         music_player_screen.resize(1,maxx)
         music_player_screen.mvwin(maxy,0)
 
@@ -88,11 +91,17 @@ def ui(screen):
     tabbar()
     tabs[tab].disp()
     key = " "
-    while not key in ("q", "\x1b"):   # UI mainloop
+    while key not in ("q", "\x1b"):   # UI mainloop
         if key == "KEY_RIGHT":
             tab = (tab +1) % len(tabs)
         elif key == "KEY_LEFT":
             tab = (tab -1) % len(tabs)
+        elif key == "l":
+            name = lib.inputstr(playlist_screen, "Name of the playlist: ")
+            temp = lib.Pointer([])
+            lib.data.load(lib.playlist_dir.joinpath(name),temp, default=[])
+            playlists.val[name] = temp.val
+            tabs.append(lib.PlaylistTab(playlist_screen, name, playlists.val[name]))
         else:
             tabs[tab].handle_key(key)
         tabs[tab].disp()
