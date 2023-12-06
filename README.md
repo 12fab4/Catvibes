@@ -5,14 +5,17 @@ A terminal based music player
 f: find a song by typing a searchterm (ideally songname and bandname). Shows 3 results by default (select with the number keys).
 
 esc: terminates searching usw and also exits the programm
+
 r: random shuffle, shuffles the queue randomly and adds the whole playlist to the queue when empty
 
-p/enter: add playlist to the queue, starting at the selected song
+p/enter: play the whole playlist
 
-Space: play / pause
+a: add current song to the playlist
+
+space: play / pause
 
 n: next song
 
 b: previous song
 
-l: create a new playlist (currently requires restart)
+l: create a new playlist

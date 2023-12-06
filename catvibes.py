@@ -74,7 +74,9 @@ def ui(screen):
                 screen.addstr(0,cursor,t.title,curses.A_REVERSE)
             else:
                 screen.addstr(0,cursor,t.title)
-            cursor += len(t.title)+1
+            cursor += len(t.title)+4
+            if t != tabs[-1]:
+                screen.addstr(0,cursor - 2 ,"|")
 
         screen.hline(1,0,"-", maxx)
         screen.hline(maxy - 1,0,"-", maxx)
