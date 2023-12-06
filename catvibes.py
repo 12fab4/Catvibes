@@ -45,26 +45,26 @@ with os.scandir(lib.playlist_dir) as files:                # handels import of p
 
 def ui(screen):
     """the main function running the UI"""
+    screen.clear()
+    screen.refresh()
     maxy, maxx = screen.getmaxyx()
     maxy, maxx = maxy - 1, maxx - 1
     curses.curs_set(0)
     curses.use_default_colors()
 
-    playlist_screen_y_restrictions = (2,2)  # first value is space from top, second from bottom
-    playlist_screen = screen.derwin(maxy - sum(playlist_screen_y_restrictions) + 1, maxx, playlist_screen_y_restrictions[0], 0)
+    playlist_screen_y_restrictions = (2,1)  # first value is space from top, second from bottom
+    playlist_screen = screen.derwin(maxy - sum(playlist_screen_y_restrictions), maxx, playlist_screen_y_restrictions[0], 0)
     music_player_screen = screen.derwin(maxy,0)
 
     tabs = [lib.songs_tab(playlist_screen)]
     tabs.extend([lib.playlist_tab(playlist_screen, name, playlist) for name,playlist in playlists.val.items()])
     tab = 0
 
-    lib.music_player = lib.music_player(music_player_screen)
+    lib.music_player = lib.music_player_class(music_player_screen)
 
-    screen.hline(1,0,"-", maxx)
-    screen.hline(maxy - 1,0,"-", maxx)
 
     def tabbar():
-        """draws the tabbar"""
+        """draws the tabbar and seperator lines"""
         cursor = 0
         for t in tabs:
             if tabs[tab] == t:
@@ -72,6 +72,9 @@ def ui(screen):
             else:
                 screen.addstr(0,cursor,t.title)
             cursor += len(t.title)+1
+        
+        screen.hline(1,0,"-", maxx)
+        screen.hline(maxy - 1,0,"-", maxx)
     
     tabbar()
     tabs[tab].disp()
@@ -79,10 +82,8 @@ def ui(screen):
     while not key in ("q", "\x1b"):   # UI mainloop
         if key == "KEY_RIGHT":
             tab = (tab +1) % len(tabs)
-            tabbar()
         elif key == "KEY_LEFT":
             tab = (tab -1) % len(tabs)
-            tabbar()
         else:
             tabs[tab].handle_key(key)
         tabs[tab].disp()
@@ -94,10 +95,18 @@ def ui(screen):
                 key = screen.getkey()
             except curses.error:
                 key = -1
-            lib.music_player.query()
+            lib.music_player.query(0.1)
         screen.timeout(-1)
+
+
         maxy, maxx = screen.getmaxyx()
+        maxy, maxx = maxy - 1, maxx - 1
+
+        tabbar()
+
         playlist_screen.resize(maxy - sum(playlist_screen_y_restrictions), maxx)
+        music_player_screen.resize(1,maxx)
+        music_player_screen.mvwin(maxy,0)
 
 
 if __name__ =="__main__":

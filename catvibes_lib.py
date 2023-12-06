@@ -6,7 +6,8 @@ import os
 import subprocess as sp
 import signal
 import random
-
+import time
+import re
 
 
 yt = ytmusicapi.YTMusic()
@@ -72,8 +73,8 @@ class playlist_tab(display_tab):
         self.playlist = playlist
         self.maxlines = len(playlist.val)
         self.on_key("f", self.add_song)
-        self.on_key("p", self.play_song)
-        self.on_key("\n", self.play_song)
+        self.on_key("p", self.play_playlist)
+        self.on_key("a", self.add_song_to_queue)
         self.on_key("d", self.remove_song)
         self.on_key(" ", self.play_or_pause)
         self.on_key("r", self.shuffle)
@@ -107,10 +108,14 @@ class playlist_tab(display_tab):
             playlist_view = self.playlist.val[start:end]
 
         for i,song in enumerate(playlist_view):
-            if i == self.line - start:
-                self.screen.addstr(i,0, song_string(song_data.val[song]),curses.A_REVERSE)
-            else:
-                self.screen.addstr(i,0, song_string(song_data.val[song]))
+            try:
+                if i == self.line - start:
+                    self.screen.addstr(i,0, song_string(song_data.val[song]),curses.A_REVERSE)
+                else:
+                    self.screen.addstr(i,0, song_string(song_data.val[song]))
+            except KeyError:
+                info(self.screen, f"a song with id {song} was not found. ")
+                self.playlist.val.remove(song)
         self.screen.refresh()
     
     def add_song(self):
@@ -124,16 +129,21 @@ class playlist_tab(display_tab):
     def remove_song(self):
         del self.playlist.val[self.line]
         self.maxlines = len(self.playlist.val)
-        self.line = self.line % self.maxlines
+        if self.maxlines > 0:
+            self.line = self.line % self.maxlines
     
-    def play_song(self):
+    def play_playlist(self):
         global music_player
+        music_player.clear_list()
         music_player.add_list([song_file(self.playlist.val[i]) for i in range(self.line, self.maxlines)])
+    
+    def add_song_to_queue(self):
+        music_player.add(song_file(self.playlist.val[self.line]))
     
     def shuffle(self):
         global music_player
-        if music_player.playlist == []:
-            music_player.add_list([song_file(self.playlist.val[i]) for i in range(self.maxlines)])
+        music_player.clear_list()
+        music_player.add_list([song_file(self.playlist.val[i]) for i in range(self.maxlines)])
         music_player.shuffle()
     
     def play_or_pause(self):
@@ -158,6 +168,20 @@ class songs_tab(playlist_tab):
         super().__init__(screen,"Songs", pointer([]))
         self.playlist.val = list(song_data.val.keys())
         self.maxlines = len(self.playlist.val)
+        self.on_key("d", self.del_song_from_db)
+        del self.keyhandler["f"]
+    
+    def del_song_from_db(self):
+        id = self.playlist.val[self.line]
+        try:
+            del song_data.val[id]
+            del self.playlist.val[self.line]
+        except:
+            info(self.screen,f"Cannot delete that Song {id}. ")
+            return
+        for playlist in playlists.val.items():
+            while id in playlist:
+                playlist.remove(id)
 
 class datamanager:
     """a class for saving and loading variables to files"""
@@ -196,7 +220,7 @@ class datamanager:
             with open(file,"x") as f:
                 f.write(json.dumps(content))
 
-class music_player:
+class music_player_class:
     """a class for playing files"""
     def __init__(self, screen):
         self.playlist:list = []
@@ -204,15 +228,14 @@ class music_player:
         self.proc = sp.Popen("echo")
         self.playing:bool = False
         self.screen = screen
+        self.timer = 0
     
     def play(self,file:Path):
         self.proc.kill()
         self.proc = sp.Popen(["ffplay", "-v", "0", "-nodisp", "-autoexit", file])
         self.playing = True
-        id = file.stem
-        delline(self.screen,0)
-        self.screen.addstr(0,0,info_string(song_data.val[id]))
-        self.screen.refresh()
+        self.disp()
+        self.timer = 0
     
     def pause(self):
         self.playing = False
@@ -238,11 +261,21 @@ class music_player:
         for file in songs:
             self.add(file)
     
-    def query(self):
+    def clear_list(self):
+        self.playlist = []
+        self.counter = -1
+    
+    def query(self,seconds: float):
         if self.proc.poll() != None:
             if self.counter < len(self.playlist) - 1:
                 self.counter += 1
                 self.play(self.playlist[self.counter])
+            else:
+                self.playing = False
+        else:
+            if self.playing:
+                self.timer += seconds
+        self.disp()
     
     def shuffle(self):
         random.shuffle(self.playlist)
@@ -257,9 +290,15 @@ class music_player:
         self.counter = (self.counter - 1) % len(self.playlist)
         self.play(self.playlist[self.counter])
 
+    def disp(self):
+        self.screen.clear()
+        if self.playing:
+            file = self.playlist[self.counter]
+            id = file.stem
+            self.screen.addstr(0,0,info_string(song_data.val[id], self.timer))
+            self.screen.refresh()
 
-
-music_player: music_player # placeholder for musicplayer
+music_player: music_player_class # placeholder for musicplayer
 data: datamanager          # placeholder for datamanager
 
 def delline(screen, y:int, refresh=False):
@@ -362,9 +401,19 @@ def song_string(song_info:dict) -> str:
     string = config.val["songstring"]
     return string_replace(string, song_info)
 
-def info_string(song_info:dict) -> str:
+def info_string(song_info:dict, play_time: float) -> str:
     """returns a string representing the currently playing track"""
     string = config.val["infostring"]
+
+    formatted_time = time.strftime("%H:%M:%S",time.gmtime(int(play_time)))
+    prefix = str(re.findall("^[0:]*", formatted_time)[0])
+    formatted_time = formatted_time.replace(prefix,"")
+    string = string.replace("CURRENT_TIME", formatted_time)
+
+    progress = int(int(play_time) / song_info["duration_seconds"] * config.val["barlenght"])
+    bar = "=" * progress + ">" + "-" * (config.val["barlenght"] - progress - 1)
+    string = string.replace("BAR", bar)
+
     return string_replace(string, song_info)
 
 def string_replace(string: str, song_info) -> str:
