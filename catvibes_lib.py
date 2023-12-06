@@ -1,5 +1,4 @@
 import curses
-import ytmusicapi
 from pathlib import Path
 import json
 import os
@@ -8,6 +7,8 @@ import signal
 import random
 import time
 import re
+
+import ytmusicapi
 
 
 yt = ytmusicapi.YTMusic()
@@ -20,18 +21,18 @@ song_dir: Path
 data_dir: Path
 playlist_dir: Path
 
-class pointer:
+class Pointer:
     """a bad implementation of pointers. use .val to retreive or set value"""
     def __init__(self,val):
         self.val = val
 
 
 
-playlists = pointer({})
-song_data = pointer({})
-config = pointer({})
+playlists = Pointer({})
+song_data = Pointer({})
+config = Pointer({})
 
-class display_tab:
+class DisplayTab:
     """# base_class for other tabs"""
 
     def __init__(self,window,title:str, linestart:int = 0):
@@ -49,26 +50,25 @@ class display_tab:
         self.keyhandler[key] = f
 
     def up(self):
+        """goes one line up"""
         if self.maxlines > 0:
             self.line = (self.line - 1) % self.maxlines
-    
+
 
     def down(self):
+        """goes one line down"""
         if self.maxlines > 0:
             self.line = (self.line + 1) % self.maxlines
-    
-
-    def disp(self):
-        pass
 
     def handle_key(self, key:str):
-        if key in self.keyhandler.keys():
+        """tries to do actions a defined with on_key()"""
+        if key in self.keyhandler:
             self.keyhandler[key]()
 
-class playlist_tab(display_tab):
+class PlaylistTab(DisplayTab):
     """a tab for simply interacting with playlists"""
 
-    def __init__(self, window, title:str, playlist:pointer, linestart:int = 0):
+    def __init__(self, window, title:str, playlist:Pointer, linestart:int = 0):
         super().__init__(window, title, linestart=linestart)
         self.playlist = playlist
         self.maxlines = len(playlist.val)
@@ -79,10 +79,10 @@ class playlist_tab(display_tab):
         self.on_key(" ", self.play_or_pause)
         self.on_key("r", self.shuffle)
         self.on_key("n", self.next)
-        self.on_key("b", self.prev) 
-        self.on_key("l", self.new_playlist)
+        self.on_key("b", self.prev)
 
     def disp(self):
+        """displays the playlist on the screen"""
         start = 0
         end = 0
         playlist_view = []
@@ -104,7 +104,7 @@ class playlist_tab(display_tab):
             else:
                 start = self.line - half
                 end = self.line + half + odd_max
-            
+
             playlist_view = self.playlist.val[start:end]
 
         for i,song in enumerate(playlist_view):
@@ -117,80 +117,86 @@ class playlist_tab(display_tab):
                 info(self.screen, f"a song with id {song} was not found. ")
                 self.playlist.val.remove(song)
         self.screen.refresh()
-    
+
     def add_song(self):
+        """ searches for a song and adds it to the playlist"""
         result = search(self.screen)
-        if result != None:
+        if result is not None:
             self.playlist.val.append(result["videoId"])
             self.line = len(self.playlist.val) - 1
         self.maxlines = len(self.playlist.val)
         self.disp()
-    
+
     def remove_song(self):
+        """removes the selected song from the playlist"""
         del self.playlist.val[self.line]
         self.maxlines = len(self.playlist.val)
         if self.maxlines > 0:
             self.line = self.line % self.maxlines
-    
+
     def play_playlist(self):
-        global music_player
+        """plays this playlist from the start"""
         music_player.clear_list()
-        music_player.add_list([song_file(self.playlist.val[i]) for i in range(self.line, self.maxlines)])
-    
+        music_player.add_list(
+            [song_file(self.playlist.val[i]) for i in range(self.line, self.maxlines)]
+            )
+
     def add_song_to_queue(self):
+        """appends the selected song to the queue"""
         music_player.add(song_file(self.playlist.val[self.line]))
-    
+
     def shuffle(self):
-        global music_player
-        music_player.clear_list()
-        music_player.add_list([song_file(self.playlist.val[i]) for i in range(self.maxlines)])
+        """plays the whole playlist in shuffeled order"""
+        self.play_playlist()
         music_player.shuffle()
-    
+
     def play_or_pause(self):
+        """ plays / pauses depending on current state"""
         music_player.toggle()
-    
+
     def next(self):
-        global music_player
+        """skip to the next song"""
         music_player.next()
-    
+
     def prev(self):
-        global music_player
+        """skips to the previous song"""
         music_player.prev()
-    
+
     def new_playlist(self):
+        """creates a new playlist. currently requires restart to list playlist"""
         name = inputstr(self.screen, "Name of the playlist: ")
-        temp = pointer([])
+        temp = Pointer([])
         data.load(playlist_dir.joinpath(name),temp, default=[])
         playlists.val[name] = temp.val
 
-class songs_tab(playlist_tab):
+class songs_tab(PlaylistTab):
     def __init__(self,screen):
-        super().__init__(screen,"Songs", pointer([]))
+        super().__init__(screen,"Songs", Pointer([]))
         self.playlist.val = list(song_data.val.keys())
         self.maxlines = len(self.playlist.val)
         self.on_key("d", self.del_song_from_db)
         del self.keyhandler["f"]
     
     def del_song_from_db(self):
-        id = self.playlist.val[self.line]
+        song_id = self.playlist.val[self.line]
         try:
-            del song_data.val[id]
+            del song_data.val[song_id]
             del self.playlist.val[self.line]
-        except:
-            info(self.screen,f"Cannot delete that Song {id}. ")
+        except IndexError:
+            info(self.screen,f"Cannot delete that Song {song_id}. ")
             return
         for playlist in playlists.val.items():
-            while id in playlist:
-                playlist.remove(id)
+            while song_id in playlist:
+                playlist.remove(song_id)
 
 class datamanager:
     """a class for saving and loading variables to files"""
     def __init__(self):
         # files[i] and vars[i] belong together
-       self.files = []
-       self.vars = []   # contains pointers
+        self.files = []
+        self.vars = []   # contains pointers
     
-    def load(self, file: Path, to: pointer, default = {}):
+    def load(self, file: Path, to: Pointer, default = {}):
         """loads and links a file to a variable. if the file is noneexsistent load default and create file"""
         self.create_if_not_exsisting(file, default)
         with open(file,"r") as loaded_file:
@@ -200,7 +206,7 @@ class datamanager:
 
             
 
-    def save(self,var: pointer, file = Path):
+    def save(self,var: Pointer, file = Path):
         """saves a variable to a file"""
         with open(file,"w") as f:
             f.write(json.dumps(var.val,indent=4))
@@ -294,8 +300,8 @@ class music_player_class:
         self.screen.clear()
         if self.playing:
             file = self.playlist[self.counter]
-            id = file.stem
-            self.screen.addstr(0,0,info_string(song_data.val[id], self.timer))
+            song_id = file.stem
+            self.screen.addstr(0,0,info_string(song_data.val[song_id], self.timer))
             self.screen.refresh()
 
 music_player: music_player_class # placeholder for musicplayer
@@ -318,7 +324,7 @@ def inputchoice(screen, choices:list) -> int:
         key = screen.getkey()
         try:
             key = int(key)
-        except:
+        except ValueError:
             if key == "\x1b":
                 key = 0
                 break
@@ -329,11 +335,11 @@ def inputchoice(screen, choices:list) -> int:
 
 def search(screen):
     """asks and searches for a song on youtube and returns a corresponding song_info dict"""
-    search = inputstr(screen, "Search Song: ")
-    if search == None:
+    search_str = inputstr(screen, "Search Song: ")
+    if search_str is None:
         return
     try:
-        results = yt.search(search, filter="songs")
+        results = yt.search(search_str, filter="songs", limit = config.val["results"])
     except Exception as e:
         e = str(e).replace('\n','')
         info(screen, f"Something went wrong searching Youtube: {e}")
@@ -382,19 +388,25 @@ def download_song(song_info:dict) -> None:
     song_id = song_info["videoId"]
     if Path.is_file(song_dir.joinpath(f"{song_id}")):
         return
-    request = sp.run(["yt-dlp", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "0", "--embed-thumbnail", "--embed-metadata", "-o", f"{song_dir}/{song_id}.mp3", f"https://www.youtube.com/watch?v={song_id}"],capture_output=True)
+    request = sp.run(
+        ["yt-dlp", "--extract-audio",
+        "--audio-format", "mp3",
+        "--audio-quality", "0",
+        "--embed-thumbnail", "--embed-metadata", 
+        "-o", f"{song_dir}/{song_id}.mp3", f"https://www.youtube.com/watch?v={song_id}"],
+        capture_output=True,
+        check = False
+        )
+    if request.returncode != 0:
+        return
     song_data.val[song_info["videoId"]] = song_info
     with open(data_dir.joinpath("data"),"r+") as data_file:
         data_file.write(json.dumps(song_data.val))
 
-def play_song(id:str):
-    """plays a song by its title in song_data"""
-    global music_player
-    music_player.play(f"{song_dir}/{id}.mp3")
 
-def song_file(id:str) -> Path:
+def song_file(song_id:str) -> Path:
     """returns the Path to a song by id"""
-    return Path(f"{song_dir}/{id}.mp3")
+    return Path(f"{song_dir}/{song_id}.mp3")
 
 def song_string(song_info:dict) -> str:
     """returns a string representation for an song_info dict according to config"""
