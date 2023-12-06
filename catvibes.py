@@ -76,6 +76,15 @@ def ui(screen):
         screen.hline(1,0,"-", maxx)
         screen.hline(maxy - 1,0,"-", maxx)
     
+    def resize():
+        nonlocal maxx, maxy
+        maxy, maxx = screen.getmaxyx()
+        maxy, maxx = maxy - 1, maxx - 1
+        playlist_screen.resize(maxy - sum(playlist_screen_y_restrictions), maxx)
+        music_player_screen.resize(1,maxx)
+        music_player_screen.mvwin(maxy,0)
+
+
     tabbar()
     tabs[tab].disp()
     key = " "
@@ -89,6 +98,10 @@ def ui(screen):
         tabs[tab].disp()
 
         screen.timeout(100)
+
+        resize()
+        tabbar()
+
         key = -1
         while key == -1:
             try:
@@ -98,15 +111,6 @@ def ui(screen):
             lib.music_player.query(0.1)
         screen.timeout(-1)
 
-
-        maxy, maxx = screen.getmaxyx()
-        maxy, maxx = maxy - 1, maxx - 1
-
-        tabbar()
-
-        playlist_screen.resize(maxy - sum(playlist_screen_y_restrictions), maxx)
-        music_player_screen.resize(1,maxx)
-        music_player_screen.mvwin(maxy,0)
 
 
 if __name__ =="__main__":
