@@ -279,7 +279,7 @@ class music_player_class:
         self.counter = -1
     
     def query(self,seconds: float):
-        if self.proc.poll() != None:
+        if self.proc.poll() is not None:
             if self.counter < len(self.playlist) - 1:
                 self.counter += 1
                 self.play(self.playlist[self.counter])
@@ -296,12 +296,14 @@ class music_player_class:
         self.play(self.playlist[self.counter])
     
     def next(self):
-        self.counter = (self.counter + 1) % len(self.playlist)
-        self.play(self.playlist[self.counter])
+        if len(self.playlist) > 0:
+            self.counter = (self.counter + 1) % len(self.playlist)
+            self.play(self.playlist[self.counter])
 
     def prev(self):
-        self.counter = (self.counter - 1) % len(self.playlist)
-        self.play(self.playlist[self.counter])
+        if len(self.playlist) > 0:
+            self.counter = (self.counter - 1) % len(self.playlist)
+            self.play(self.playlist[self.counter])
 
     def disp(self):
         self.screen.clear()
