@@ -169,15 +169,17 @@ class PlaylistTab(DisplayTab):
         data.load(playlist_dir.joinpath(name),temp, default=[])
         playlists.val[name] = temp.val
 
-class songs_tab(PlaylistTab):
+class SongsTab(PlaylistTab):
+    """a tab for all songs"""
     def __init__(self,screen):
         super().__init__(screen,"Songs", Pointer([]))
         self.playlist.val = list(song_data.val.keys())
         self.maxlines = len(self.playlist.val)
         self.on_key("d", self.del_song_from_db)
         del self.keyhandler["f"]
-    
+
     def del_song_from_db(self):
+        """deletes a song from everything"""
         song_id = self.playlist.val[self.line]
         try:
             del song_data.val[song_id]
@@ -188,6 +190,11 @@ class songs_tab(PlaylistTab):
         for playlist in playlists.val.items():
             while song_id in playlist:
                 playlist.remove(song_id)
+
+    def disp(self):
+        self.playlist.val = list(song_data.val.keys())
+        super().disp()
+
 
 class datamanager:
     """a class for saving and loading variables to files"""

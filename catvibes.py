@@ -57,7 +57,7 @@ def ui(screen):
     playlist_screen = screen.derwin(maxy - sum(y_restrictions), maxx, y_restrictions[0], 0)
     music_player_screen = screen.derwin(maxy,0)
 
-    tabs = [lib.songs_tab(playlist_screen)]
+    tabs = [lib.SongsTab(playlist_screen)]
     tabs.extend(
         [lib.PlaylistTab(playlist_screen,name,playlist) for name,playlist in playlists.val.items()]
         )
@@ -100,8 +100,8 @@ def ui(screen):
             name = lib.inputstr(playlist_screen, "Name of the playlist: ")
             temp = lib.Pointer([])
             lib.data.load(lib.playlist_dir.joinpath(name),temp, default=[])
-            playlists.val[name] = temp.val
-            tabs.append(lib.PlaylistTab(playlist_screen, name, playlists.val[name]))
+            playlists.val[name] = temp
+            tabs.append(lib.PlaylistTab(playlist_screen, name, temp))
         else:
             tabs[tab].handle_key(key)
         tabs[tab].disp()
