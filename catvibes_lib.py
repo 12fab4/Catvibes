@@ -432,7 +432,7 @@ def info_string(song_info:dict, play_time: float) -> str:
     string = string.replace("CURRENT_TIME", formatted_time)
 
     progress = int(int(play_time) / song_info["duration_seconds"] * config.val["barlenght"])
-    bar = "=" * progress + ">" + "-" * (config.val["barlenght"] - progress - 1)
+    bar = "═" * progress + "‣" + "─" * (config.val["barlenght"] - progress - 1)
     string = string.replace("BAR", bar)
 
     return string_replace(string, song_info)
