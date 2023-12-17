@@ -7,6 +7,7 @@ import signal
 import random
 import time
 import re
+import shutil
 
 import ytmusicapi
 
@@ -31,6 +32,38 @@ class Pointer:
 playlists = Pointer({})
 song_data = Pointer({})
 config = Pointer({})
+
+
+def init():
+    """loads files and config"""
+    global playlists, song_data, data, config, song_dir, data_dir, playlist_dir, music_player
+    workdir = Path(__file__).parent
+    default_config_location = workdir.joinpath("config")
+    config_location = Path.home().joinpath(".config/Catvibes/config")
+    if not Path.is_file(config_location):
+        shutil.copy2(default_config_location, config_location)
+
+    data = datamanager()
+
+    data.load(config_location,config)
+
+    main_dir = Path.home().joinpath(config.val["maindirectory"])
+    song_dir = main_dir.joinpath("songs")
+    data_dir = main_dir.joinpath("data")
+    playlist_dir = main_dir.joinpath("playlists")
+
+    # loads the song db
+    data.load(data_dir.joinpath("data"), song_data,{})
+
+    with os.scandir(playlist_dir) as files:
+        for f in files:
+            with open(f,"r") as loaded_file:
+                name = Path(f).stem
+                temp = Pointer([])
+                data.load(f,temp)
+                playlists.val[name] = temp
+    music_player = music_player_class()
+
 
 class DisplayTab:
     """# base_class for other tabs"""
@@ -165,9 +198,10 @@ class PlaylistTab(DisplayTab):
     def new_playlist(self):
         """creates a new playlist. currently requires restart to list playlist"""
         name = inputstr(self.screen, "Name of the playlist: ")
-        temp = Pointer([])
-        data.load(playlist_dir.joinpath(name),temp, default=[])
-        playlists.val[name] = temp.val
+        if name is not None:
+            temp = Pointer([])
+            data.load(playlist_dir.joinpath(name),temp, default=[])
+            playlists.val[name] = temp.val
 
 class SongsTab(PlaylistTab):
     """a tab for all songs"""
@@ -194,7 +228,6 @@ class SongsTab(PlaylistTab):
     def disp(self):
         self.playlist.val = list(song_data.val.keys())
         super().disp()
-
 
 class datamanager:
     """a class for saving and loading variables to files"""
@@ -423,7 +456,6 @@ def download_song(song_info:dict) -> None:
     with open(data_dir.joinpath("data"),"r+") as data_file:
         data_file.write(json.dumps(song_data.val))
 
-
 def song_file(song_id:str) -> Path:
     """returns the Path to a song by id"""
     return Path(f"{song_dir}/{song_id}.mp3")
@@ -437,9 +469,7 @@ def info_string(song_info:dict, play_time: float) -> str:
     """returns a string representing the currently playing track"""
     string = config.val["infostring"]
 
-    formatted_time = time.strftime("%H:%M:%S",time.gmtime(int(play_time)))
-    prefix = str(re.findall("^[0:]*", formatted_time)[0])
-    formatted_time = formatted_time.replace(prefix,"")
+    formatted_time = format_time(int(play_time))
     string = string.replace("CURRENT_TIME", formatted_time)
 
     progress = int(int(play_time) / song_info["duration_seconds"] * config.val["barlenght"])
@@ -447,6 +477,12 @@ def info_string(song_info:dict, play_time: float) -> str:
     string = string.replace("BAR", bar)
 
     return string_replace(string, song_info)
+
+def format_time(seconds:int) -> str:
+    formatted_time = time.strftime("%H:%M:%S",time.gmtime(seconds))
+    prefix = str(re.findall("^[0:]*", formatted_time)[0])
+    formatted_time = formatted_time.replace(prefix,"")
+    return formatted_time
 
 def string_replace(string: str, song_info) -> str:
     """replaces varoius KEYs in a string like TITLE with the info in the song_info dict"""
