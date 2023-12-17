@@ -63,7 +63,7 @@ def ui(screen):
         )
     tab = 0
 
-    lib.music_player = lib.music_player_class(music_player_screen)
+    lib.music_player = lib.music_player_with_screen(music_player_screen)
 
 
     def tabbar():

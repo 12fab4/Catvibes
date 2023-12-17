@@ -235,19 +235,17 @@ class datamanager:
 
 class music_player_class:
     """a class for playing files"""
-    def __init__(self, screen):
+    def __init__(self):
         self.playlist:list = []
         self.counter:int = -1
         self.proc = sp.Popen("echo")
         self.playing:bool = False
-        self.screen = screen
         self.timer = 0
     
     def play(self,file:Path):
         self.proc.kill()
         self.proc = sp.Popen(["ffplay", "-v", "0", "-nodisp", "-autoexit", file])
         self.playing = True
-        self.disp()
         self.timer = 0
     
     def pause(self):
@@ -288,7 +286,6 @@ class music_player_class:
         else:
             if self.playing:
                 self.timer += seconds
-        self.disp()
     
     def shuffle(self):
         random.shuffle(self.playlist)
@@ -305,6 +302,12 @@ class music_player_class:
             self.counter = (self.counter - 1) % len(self.playlist)
             self.play(self.playlist[self.counter])
 
+
+class music_player_with_screen(music_player_class):
+    def __init__(self, screen):
+        super().__init__()
+        self.screen = screen
+    
     def disp(self):
         self.screen.clear()
         if self.playing:
@@ -312,6 +315,14 @@ class music_player_class:
             song_id = file.stem
             self.screen.addstr(0,0,info_string(song_data.val[song_id], self.timer))
             self.screen.refresh()
+    
+    def query(self,seconds):
+        super().query(seconds)
+        self.disp()
+    
+    def play(self, file: Path):
+        super().play(file)
+        self.disp()
 
 music_player: music_player_class # placeholder for musicplayer
 data: datamanager          # placeholder for datamanager
