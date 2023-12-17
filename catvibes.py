@@ -5,41 +5,12 @@ import shutil
 
 import catvibes_lib as lib
 
+lib.init()
 
-workdir = Path(__file__).parent
-default_config_location = workdir.joinpath("config")
-config_location = Path.home().joinpath(".config/Catvibes/config")
-if not Path.is_file(config_location):
-    shutil.copy2(default_config_location, config_location)
+config = lib.config
+playlists = lib.playlists
+song_data = lib.song_data
 
-lib.data = lib.datamanager()
-
-config:lib.Pointer = lib.config
-lib.data.load(config_location,config)
-
-lib.main_dir = Path.home().joinpath(config.val["maindirectory"])
-lib.song_dir = lib.main_dir.joinpath("songs")
-lib.data_dir = lib.main_dir.joinpath("data")
-lib.playlist_dir = lib.main_dir.joinpath("playlists")
-
-playlists:lib.Pointer = lib.playlists
-song_data:lib.Pointer = lib.song_data
-
-
-# loads the song db
-lib.data.load(lib.data_dir.joinpath("data"), song_data,{})
-
-# creates a default favorites playlist
-lib.data.create_if_not_exsisting(lib.playlist_dir.joinpath("favorites"),[])
-
-# handels import of playlists (favorites is playlists)
-with os.scandir(lib.playlist_dir) as files:
-    for f in files:
-        with open(f,"r") as loaded_file:
-            name = Path(f).stem
-            temp = lib.Pointer([])
-            lib.data.load(f,temp)
-            playlists.val[name] = temp
 
 
 
