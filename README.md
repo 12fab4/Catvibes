@@ -9,7 +9,7 @@ A simple music player offering not only a terminal based frontend but also a Qt 
 ![](./images/terminalui.png)
 
 
-# Instalation
+# Installation
 
 ## Requirements:
 python and the following packages:
@@ -18,19 +18,19 @@ python and the following packages:
 
 it also requires ffplay
 
-On linux install ffmpeg on debian-based and arch-based distros available and probably already installed
+On linux install ffmpeg which is available debian-based and arch-based distros and probably already installed
 
 On Windows use the following link: https://www.ffmpeg.org/download.html#build-windows, select windows and chose one of the available .exe files
 
 
-# Controlls
+# Controls
 ## GUI:
 launch with the --gui flag
 
 ## commandline:
 f: find a song by typing a searchterm (ideally songname and bandname). Shows 3 results by default (select with the number keys).
 
-esc: terminates searching usw and also exits the programm
+esc: terminates searching usw and also exits the program
 
 r: random shuffle, shuffles the queue randomly and adds the whole playlist to the queue when empty
 
