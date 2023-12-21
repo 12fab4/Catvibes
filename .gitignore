@@ -1,1 +1,5 @@
 __pycache__/*
+.idea/*
+src/Catvibes.egg-info/*
+dist/*
+src/catvibes/__pycache__/*

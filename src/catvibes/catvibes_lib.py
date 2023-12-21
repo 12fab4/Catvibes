@@ -1,3 +1,4 @@
+import _curses
 import curses
 import json
 import os
@@ -37,7 +38,9 @@ def init():
     global playlists, song_data, data, main_dir, config, song_dir, data_dir, playlist_dir, music_player
     workdir = Path(__file__).parent
     default_config_location = workdir.joinpath("config")
-    config_base = os.environ.get('APPDATA') or os.environ.get('XDG_CONFIG_HOME') or os.path.join(os.environ['HOME'],'.config')
+    config_base = os.environ.get('APPDATA') or \
+                  os.environ.get('XDG_CONFIG_HOME') or \
+                  os.path.join(os.environ['HOME'], '.config')
     config_location = Path(config_base).joinpath("Catvibes/config")
     if not Path.is_file(config_location):
         shutil.copy2(default_config_location, config_location)
@@ -144,12 +147,14 @@ class PlaylistTab(DisplayTab):
         for i, song in enumerate(playlist_view):
             try:
                 if i == self.line - start:
-                    self.screen.addstr(i, 0, song_string(song_data.val[song]), curses.A_REVERSE)
+                    addstr(self.screen, i, 0, song_string(song_data.val[song]), curses.A_REVERSE)
                 else:
-                    self.screen.addstr(i, 0, song_string(song_data.val[song]))
+                    addstr(self.screen, i, 0, song_string(song_data.val[song]))
             except KeyError:
                 info(self.screen, f"a song with id {song} was not found. ")
                 self.playlist.val.remove(song)
+            except _curses.error:
+                pass  # bad practise but required for smaller windows
         self.screen.refresh()
 
     def add_song(self):
@@ -358,7 +363,7 @@ class MusicPlayerWithScreen(MusicPlayerClass):
         if self.playing:
             file = self.playlist[self.counter]
             song_id = file.stem
-            self.screen.addstr(0, 0, info_string(song_data.val[song_id], self.timer))
+            addstr(self.screen, 0, 0, info_string(song_data.val[song_id], self.timer))
             self.screen.refresh()
 
     def query(self, seconds):
@@ -385,7 +390,7 @@ def inputchoice(screen, choices: list) -> int:
     """displays a number of choices to the user and returns the chosen number. -1 if exited"""
     maxy, _ = getmax(screen)
     for i, choice in enumerate(choices):
-        screen.addstr(maxy - len(choices) + i + 1, 0, f"{i + 1}. {choice}")
+        addstr(screen, maxy - len(choices) + i + 1, 0, f"{i + 1}. {choice}")
     screen.refresh()
     key = -1
     while key < 1 or key > len(choices):
@@ -427,7 +432,7 @@ def inputstr(screen, question: str) -> str | None:
     """asks for a simple textinput"""
     maxy, _ = getmax(screen)
     delline(screen, maxy)
-    screen.addstr(maxy, 0, question)
+    addstr(screen, maxy, 0, question)
     screen.refresh()
     text = ""
     key = screen.getkey()
@@ -438,7 +443,7 @@ def inputstr(screen, question: str) -> str | None:
             return
         else:
             text += key
-        screen.addstr(maxy, len(question), text + "   ")
+        addstr(screen, maxy, len(question), text + "   ")
         screen.refresh()
         key = screen.getkey()
     delline(screen, maxy, True)
@@ -448,7 +453,7 @@ def inputstr(screen, question: str) -> str | None:
 def info(screen, text: str, important=True) -> None:
     """prints a message at the bottom of the screen"""
     maxy, _ = getmax(screen)
-    screen.addstr(maxy, 0, text + " press any key to continue")
+    addstr(screen, maxy, 0, text + " press any key to continue")
     screen.refresh()
     if important:
         screen.getkey()
@@ -482,7 +487,7 @@ def song_file(song_id: str) -> Path:
 
 
 def song_string(song_info: dict) -> str:
-    """returns a string representation for an song_info dict according to config"""
+    """returns a string representation for a song_info dict according to config"""
     string = config.val["songstring"]
     return string_replace(string, song_info)
 
@@ -520,3 +525,13 @@ def getmax(screen) -> tuple[int, int]:
     """returns the bottom most corner of the screen"""
     maxy, maxx = screen.getmaxyx()
     return maxy - 1, maxx - 1
+
+
+def addstr(screen, y: int, x: int, string: str, params = None):
+    try:
+        if params is not None:
+            screen.addstr(y, x, string, params)
+        else:
+            screen.addstr(y, x, string)
+    except _curses.error:
+        pass  # bad practise but required for smaller windows
