@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "Catvibes"
-version = "1.0.3"
+version = "1.0.4"
 description = "A musicplayer with a terminal and a Qt frontend"
 readme = "PyPIREADME.md"
 license = {file = "LICENSE"}
@@ -14,7 +14,8 @@ dependencies = [
     "yt-dlp >= 2023.11.16",
     "ytmusicapi >= 1.3.2",
     "eyed3 >= 0.9.7",
-    "PyQt6 >= 6.6.1"
+    "PyQt6 >= 6.6.1",
+    'windows_curses >= 2.3.2; sys_platform == "win32"'
 ]
 requires-python = ">=3.11"
 
