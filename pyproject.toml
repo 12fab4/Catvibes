@@ -1,0 +1,25 @@
+# pyproject.toml
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Catvibes"
+version = "1.0.2"
+description = "A musicplayer with a terminal and a Qt frontend"
+readme = "PyPIREADME.md"
+license = {file = "LICENSE"}
+dependencies = [
+    "yt-dlp",
+    "ytmusicapi",
+    "eyed3",
+    "PyQt6"
+]
+requires-python = ">=3.11"
+
+[project.urls]
+Hompage = "https://github.com/12fab4/Catvibes"
+
+[project.scripts]
+catvibes = "catvibes.__main__:main"

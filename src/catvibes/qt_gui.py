@@ -30,7 +30,7 @@ from pathlib import Path
 from functools import partial
 import eyed3
 
-import catvibes_lib as lib
+from catvibes import catvibes_lib as lib
 
 lib.init()
 playlists = lib.playlists
@@ -118,6 +118,7 @@ class PlaylistWidget(QWidget):
         self.search.setCompleter(completion)
         layout.addWidget(self.search, 0, 2)
         self.playlistarea = QScrollArea()
+        self.playlistarea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.playlistbox = QWidget()
         self.playlistlayout = QVBoxLayout()
         self.refresh()
@@ -260,10 +261,15 @@ class PlayerWidget(QWidget, lib.MusicPlayerClass):
         if self.playlist != []:
             self.query(seconds)
             song = self.playlist[self.counter].stem
-            self.prog_bar.setRange(0, song_data.val[song]["duration_seconds"])
-            self.prog_bar.setValue(int(self.timer))
-            self.prog_bar.setFormat(f"{lib.format_time(int(self.timer))} - {song_data.val[song]['duration']}")
-            self.title.setText(song_data.val[song]['title'])
+            try:
+                self.prog_bar.setRange(0, song_data.val[song]["duration_seconds"])
+                self.prog_bar.setValue(int(self.timer))
+                self.prog_bar.setFormat(f"{lib.format_time(int(self.timer))} - {song_data.val[song]['duration']}")
+                self.title.setText(song_data.val[song]['title'])
+            except KeyError:
+                del self.playlist[self.counter]
+                self.counter = self.counter % len(self.playlist)
+                self.proc.kill()
 
     def play(self, file: Path):
         super().play(file)
@@ -293,11 +299,10 @@ def clear_layout(layout: QLayout):
         layout.itemAt(i).widget().setParent(None)
 
 
-
-
-if __name__ == "__main__":
+def main():
     app = QApplication(sys.argv)
     theme = lib.config.val["theme"]
+    print(theme, QStyleFactory.keys())
     if theme in QStyleFactory.keys():
         app.setStyle(theme)
     window = MainWindow()
@@ -307,3 +312,7 @@ if __name__ == "__main__":
     finally:
         player.proc.kill()
         lib.data.save_all()
+
+
+if __name__ == "__main__":
+    main()
