@@ -43,7 +43,8 @@ def init():
                   os.path.join(os.environ['HOME'], '.config')
     config_location = Path(config_base).joinpath("Catvibes/config")
     if not Path.is_file(config_location):
-        shutil.copy2(default_config_location, config_location)
+        os.makedirs(config_location.parent, exist_ok=True)
+        shutil.copy2(default_config_location, config_location.parent)
 
     data = Datamanager()
 
