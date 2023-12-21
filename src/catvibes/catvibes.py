@@ -1,19 +1,7 @@
+import _curses
 import curses
-import sys
-import os
 
-import catvibes_lib as lib
-
-lib.init()
-
-for arg in sys.argv[1:]:
-    if arg == "--gui":
-        os.system("python qt_gui.py")
-        sys.exit(0)
-
-config = lib.config
-playlists = lib.playlists
-song_data = lib.song_data
+from catvibes import catvibes_lib as lib
 
 
 def ui(screen):
@@ -27,6 +15,9 @@ def ui(screen):
 
     # first value is space from top, second from bottom
     y_restrictions = (2, 1)
+
+
+
     playlist_screen = screen.derwin(maxy - sum(y_restrictions), maxx, y_restrictions[0], 0)
     music_player_screen = screen.derwin(maxy, 0)
 
@@ -43,12 +34,12 @@ def ui(screen):
         cursor = 0
         for t in tabs:
             if tabs[tab] == t:
-                screen.addstr(0, cursor, t.title, curses.A_REVERSE)
+                lib.addstr(screen, 0, cursor, t.title, curses.A_REVERSE)
             else:
-                screen.addstr(0, cursor, t.title)
+                lib.addstr(screen, 0, cursor, t.title)
             cursor += len(t.title) + 4
             if t != tabs[-1]:
-                screen.addstr(0, cursor - 2, "│")
+                lib.addstr(screen, 0, cursor - 2, "│")
 
         screen.hline(1, 0, curses.ACS_HLINE, maxx)
         screen.hline(maxy - 1, 0, curses.ACS_HLINE, maxx)
@@ -58,6 +49,7 @@ def ui(screen):
         maxy, maxx = screen.getmaxyx()
         maxy, maxx = maxy - 1, maxx - 1
         playlist_screen.resize(maxy - sum(y_restrictions), maxx)
+        playlist_screen.mvwin(y_restrictions[0],0)
         music_player_screen.resize(1, maxx)
         music_player_screen.mvwin(maxy, 0)
 
@@ -87,6 +79,7 @@ def ui(screen):
 
         key = -1
         while key == -1:
+            resize()
             try:
                 key = screen.getkey()
             except curses.error:
@@ -95,10 +88,21 @@ def ui(screen):
         screen.timeout(-1)
 
 
-if __name__ == "__main__":
+def main():
+    global config, playlists, song_data
+    lib.init()
+
+    config = lib.config
+    playlists = lib.playlists
+    song_data = lib.song_data
+
     try:
         curses.wrapper(ui)
     finally:
         lib.music_player.proc.kill()
         curses.curs_set(1)
         lib.data.save_all()
+
+
+if __name__ == "__main__":
+    main()

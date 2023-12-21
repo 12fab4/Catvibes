@@ -2,11 +2,11 @@
 A simple music player offering not only a terminal based frontend but also a Qt based one.
 
 # Qt look (with kvantum theme)
-![](./images/qtui.png)
+![](https://github.com/12fab4/Catvibes/blob/efecad61b8b4e3daa0dfa775673b895084873969/images/qtui.png)
 # Qt look (with Windows theme)
-![](./images/windows.png)
+![](https://github.com/12fab4/Catvibes/blob/efecad61b8b4e3daa0dfa775673b895084873969/images/windows.png)
 # terminal look
-![](./images/terminalui.png)
+![](https://github.com/12fab4/Catvibes/blob/efecad61b8b4e3daa0dfa775673b895084873969/images/terminalui.png)
 
 
 # Installation
