@@ -11,8 +11,10 @@ A simple music player offering not only a terminal based frontend but also a Qt 
 
 # Installation
 
+    pip install Catvibes
+
 ## Requirements:
-python and the following packages:
+python and the following packages (will be installed as dependencies with pip):
 
     pip install ytmusicapi eyed3 yt-dlp PyQt6
 

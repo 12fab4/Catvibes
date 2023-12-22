@@ -353,6 +353,12 @@ class MusicPlayerClass:
             self.counter = (self.counter - 1) % len(self.playlist)
             self.play(self.playlist[self.counter])
 
+    @property
+    def song(self):
+        if self.playlist != []:
+            return self.playlist[self.counter].stem
+        return None
+
 
 class MusicPlayerWithScreen(MusicPlayerClass):
     def __init__(self, screen):
