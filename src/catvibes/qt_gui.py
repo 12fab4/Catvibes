@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QTabWidget, QLineEdit, QCompleter, QMenu, QLayout, QStyleFactory, QStyle
+    QTabWidget, QLineEdit, QCompleter, QMenu, QLayout, QStyleFactory, QStyle, QDialog
 )
 
 from PyQt6.QtGui import (
@@ -17,18 +17,19 @@ from PyQt6.QtGui import (
     QPalette,
     QPixmap,
     QImage,
-    QStandardItemModel, QStandardItem, QCursor
+    QStandardItemModel, QStandardItem, QCursor, QResizeEvent, QIcon, QFont
 )
 
 from PyQt6.QtCore import (
     QTimer,
-    Qt, QProcess
+    Qt, QProcess, QSize
 )
 
 import sys
 from pathlib import Path
 from functools import partial
 import eyed3
+import requests
 
 from catvibes import catvibes_lib as lib
 
@@ -137,6 +138,7 @@ class PlaylistWidget(QWidget):
             self.searchresults.appendRow([QStandardItem(val) for val in completions])
 
     def find_song(self):
+
         def finish():
             # print("proc finished")
             nonlocal p
@@ -147,16 +149,20 @@ class PlaylistWidget(QWidget):
                 self.refresh()
             p = None
 
-        song_info = lib.yt.search(self.search.text(), "songs", limit=1)[0]
-        song_id = song_info["videoId"]
-        p = QProcess()
-        p.finished.connect(finish)
-        p.start("yt-dlp",
-                ["--extract-audio",
-                 "--audio-format", "mp3",
-                 "--audio-quality", "0",
-                 "--embed-thumbnail", "--embed-metadata",
-                 "-o", f"{lib.song_dir}/{song_id}.mp3", f"https://www.youtube.com/watch?v={song_id}"])
+        song_infos = lib.yt.search(self.search.text(), "songs", limit=1)[:lib.config.val["results"]]
+        dialog = ChooseSongDialog(song_infos)
+        r = dialog.exec()
+        if r >= 100:
+            song_info = song_infos[r - 100]
+            song_id = song_info["videoId"]
+            p = QProcess()
+            p.finished.connect(finish)
+            p.start("yt-dlp",
+                    ["--extract-audio",
+                     "--audio-format", "mp3",
+                     "--audio-quality", "0",
+                     "--embed-thumbnail", "--embed-metadata",
+                     "-o", f"{lib.song_dir}/{song_id}.mp3", f"https://www.youtube.com/watch?v={song_id}"])
 
     def shuffle(self):
         if player.playlist == []:
@@ -199,12 +205,33 @@ class PlaylistWidget(QWidget):
         self.refresh()
 
 
+class ChooseSongDialog(QDialog):
+    def __init__(self, songs: list):
+        super().__init__()
+        self.setWindowTitle("Choose Song")
+        layout = QGridLayout()
+        for i, song in enumerate(songs):
+            wid = QPushButton(song["title"] + " - " + song["artists"][0]["name"])
+            wid.clicked.connect(partial(self.done, i + 100))   # + 100 to tell apart from codes like 0 which is also emitted on window closing
+            url = song["thumbnails"][0]["url"]
+            image = QImage()
+            image.loadFromData(requests.get(url).content)
+            pixmap = QPixmap(image)
+            wid.setIcon(QIcon(pixmap))
+            wid.setFixedSize(500, 80)
+            wid.setIconSize(QSize(60, 60))
+            wid.setStyleSheet("font-size: 20px")
+            layout.addWidget(wid, i, 0)
+        self.setLayout(layout)
+        self.setFixedSize(550, 300)
+
+
 class SongsWidget(PlaylistWidget):
     def __init__(self) -> None:
         playlist = lib.Pointer(list(song_data.val.keys()))
         super().__init__(playlist)
         self.layout().removeWidget(self.search)
-        del self.search
+        self.search.setParent(None)
 
     def remove_song(self, n):
         del song_data.val[self.playlist.val[n]]
@@ -260,28 +287,33 @@ class PlayerWidget(QWidget, lib.MusicPlayerClass):
     def refresh(self, seconds: float):
         if self.playlist != []:
             self.query(seconds)
-            song = self.playlist[self.counter].stem
-            try:
-                self.prog_bar.setRange(0, song_data.val[song]["duration_seconds"])
-                self.prog_bar.setValue(int(self.timer))
-                self.prog_bar.setFormat(f"{lib.format_time(int(self.timer))} - {song_data.val[song]['duration']}")
-                self.title.setText(song_data.val[song]['title'])
-            except KeyError:
-                del self.playlist[self.counter]
-                self.counter = self.counter % len(self.playlist)
-                self.proc.kill()
+            song = self.song
+            size = self.parent().size()
+            h, w = size.height(), size.width()
+            if player.song:
+                player.Icon.setPixmap(song_cover_info(player.song, min(h - 150, w - 600))[0])
+                try:
+                    self.prog_bar.setRange(0, song_data.val[song]["duration_seconds"])
+                    self.prog_bar.setValue(int(self.timer))
+                    self.prog_bar.setFormat(f"{lib.format_time(int(self.timer))} - {song_data.val[song]['duration']}")
+                    self.title.setText(song_data.val[song]['title'])
+                except KeyError:
+                    del self.playlist[self.counter]
+                    self.counter = self.counter % len(self.playlist)
+                    self.proc.kill()
 
     def play(self, file: Path):
         super().play(file)
         song = file.stem
-        cover, color = song_cover_info(song, 300, 300)
+        cover, color = song_cover_info(song, 300)
         self.Icon.setPixmap(cover)
+        self.parent().size()
         colors = self.palette()
         colors.setColor(QPalette.ColorRole.Window, color)
         self.setPalette(colors)
 
 
-def song_cover_info(song_id: str, scalex=60, scaley=60) -> tuple[QPixmap, QColor]:
+def song_cover_info(song_id: str, scale=60) -> tuple[QPixmap, QColor]:
     file = lib.song_file(song_id)
     metadata: eyed3.AudioFile = eyed3.load(file)
     image = QImage.fromData(metadata.tag.images[0].image_data)
@@ -291,7 +323,7 @@ def song_cover_info(song_id: str, scalex=60, scaley=60) -> tuple[QPixmap, QColor
     image = image.copy(int((width - height) / 2), 0, height, height)
 
     pixmap = QPixmap.fromImage(image)
-    return pixmap.scaled(scalex, scaley), color
+    return pixmap.scaledToHeight(scale), color
 
 
 def clear_layout(layout: QLayout):
