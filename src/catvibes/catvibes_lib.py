@@ -9,6 +9,8 @@ import signal
 import subprocess as sp
 import time
 from pathlib import Path
+from platform import system
+from PyQt6.QtCore import QProcess
 
 import ytmusicapi
 
@@ -35,7 +37,7 @@ config = Pointer({})
 
 def init():
     """loads files and config"""
-    global playlists, song_data, data, main_dir, config, song_dir, data_dir, playlist_dir, music_player
+    global playlists, song_data, data, main_dir, config, song_dir, data_dir, playlist_dir, music_player,config_location
     workdir = Path(__file__).parent
     default_config_location = workdir.joinpath("config")
     config_base = os.environ.get('APPDATA') or \
@@ -58,11 +60,12 @@ def init():
     # loads the song db
     data.load(data_dir.joinpath("data"), song_data, {})
 
+    os.makedirs(playlist_dir, exist_ok=True)
     with os.scandir(playlist_dir) as files:
         for f in files:
             name = Path(f).stem
             temp = Pointer([])
-            data.load(f, temp)
+            data.load(Path(f), temp)
             playlists.val[name] = temp
     music_player = MusicPlayerClass()
 
@@ -75,7 +78,6 @@ class DisplayTab:
         self.title = title
         self.keyhandler = {}
         self.line = linestart
-        self.maxlines = 0
         self.maxy, self.maxx = self.screen.getmaxyx()
         self.on_key("KEY_UP", self.up)
         self.on_key("KEY_DOWN", self.down)
@@ -83,6 +85,11 @@ class DisplayTab:
     def on_key(self, key: str, f):
         """registers functions with key strings like KEY_LEFT"""
         self.keyhandler[key] = f
+
+    @property
+    def maxlines(self) -> int:
+        return 0
+
 
     def up(self):
         """goes one line up"""
@@ -109,7 +116,6 @@ class PlaylistTab(DisplayTab):
     def __init__(self, window, title: str, playlist: Pointer, linestart: int = 0):
         super().__init__(window, title, linestart=linestart)
         self.playlist = playlist
-        self.maxlines = len(playlist.val)
         self.on_key("f", self.add_song)
         self.on_key("p", self.play_playlist)
         self.on_key("a", self.add_song_to_queue)
@@ -118,6 +124,11 @@ class PlaylistTab(DisplayTab):
         self.on_key("r", self.shuffle)
         self.on_key("n", self.next)
         self.on_key("b", self.prev)
+
+    @property
+    def maxlines(self):
+        return len(self.playlist.val)
+
 
     def disp(self):
         """displays the playlist on the screen"""
@@ -162,15 +173,15 @@ class PlaylistTab(DisplayTab):
         """ searches for a song and adds it to the playlist"""
         result = search(self.screen)
         if result is not None:
-            self.playlist.val.append(result["videoId"])
-            self.line = len(self.playlist.val) - 1
-        self.maxlines = len(self.playlist.val)
-        self.disp()
+            def finished():
+                self.playlist.val.append(result["videoId"])
+                self.line = len(self.playlist.val) - 1
+                self.disp()
+            download_song(result, wait=True, on_finished=finished)
 
     def remove_song(self):
         """removes the selected song from the playlist"""
         del self.playlist.val[self.line]
-        self.maxlines = len(self.playlist.val)
         if self.maxlines > 0:
             self.line = self.line % self.maxlines
 
@@ -220,7 +231,6 @@ class SongsTab(PlaylistTab):
     def __init__(self, screen):
         super().__init__(screen, "Songs", Pointer([]))
         self.playlist.val = list(song_data.val.keys())
-        self.maxlines = len(self.playlist.val)
         self.on_key("d", self.del_song_from_db)
         del self.keyhandler["f"]
 
@@ -289,7 +299,10 @@ class MusicPlayerClass:
     def __init__(self):
         self.playlist: list = []
         self.counter: int = -1
-        self.proc = sp.Popen("echo")
+        if system() == "Linux" or system() == "Darwin":
+            self.proc = sp.Popen("echo")
+        else:
+            self.proc = sp.Popen(["echo."],shell = True)
         self.playing: bool = False
         self.timer = 0
 
@@ -397,6 +410,7 @@ def inputchoice(screen, choices: list) -> int:
     """displays a number of choices to the user and returns the chosen number. -1 if exited"""
     maxy, _ = getmax(screen)
     for i, choice in enumerate(choices):
+        delline(screen, maxy - len(choices) + i + 1)
         addstr(screen, maxy - len(choices) + i + 1, 0, f"{i + 1}. {choice}")
     screen.refresh()
     key = -1
@@ -408,6 +422,7 @@ def inputchoice(screen, choices: list) -> int:
             if key == "\x1b":
                 key = 0
                 break
+            key = -1
     for i in range(maxy - len(choices), maxy):
         delline(screen, i + 1)
     screen.refresh()
@@ -431,7 +446,6 @@ def search(screen):
     if chosen == -1:
         return
     chosen = results[chosen]
-    download_song(chosen)
     return chosen
 
 
@@ -467,25 +481,38 @@ def info(screen, text: str, important=True) -> None:
         delline(screen, maxy, True)
 
 
-def download_song(song_info: dict) -> None:
+def download_song(song_info: dict, wait = False, on_finished = None) -> None:
     """downloads a song from a song_info dict returned by yt.search()"""
     song_id = song_info["videoId"]
     if Path.is_file(song_dir.joinpath(f"{song_id}")):
         return
-    request = sp.run(
-        ["yt-dlp", "--extract-audio",
+
+    def finished():
+        nonlocal p, on_finished
+        if p.exitCode() != 0:
+            error = p.errorString
+            p = None
+            raise Exception(f"Could not download a song. Error:\n{error}")
+        p = None
+        song_data.val[song_info["videoId"]] = song_info
+        # with open(data_dir.joinpath("data"), "r+") as data_file:
+        #     data_file.write(json.dumps(song_data.val))
+        if on_finished is not None:
+            on_finished()
+
+    p = QProcess()
+    p.finished.connect(finished)
+    p.start(
+        "yt-dlp",
+        ["--extract-audio",
          "--audio-format", "mp3",
          "--audio-quality", "0",
          "--embed-thumbnail", "--embed-metadata",
          "-o", f"{song_dir}/{song_id}.mp3", f"https://www.youtube.com/watch?v={song_id}"],
-        capture_output=True,
-        check=False
     )
-    if request.returncode != 0:
-        return
-    song_data.val[song_info["videoId"]] = song_info
-    with open(data_dir.joinpath("data"), "r+") as data_file:
-        data_file.write(json.dumps(song_data.val))
+    if wait:
+        p.waitForFinished()
+
 
 
 def song_file(song_id: str) -> Path:
