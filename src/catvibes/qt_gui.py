@@ -9,7 +9,14 @@ from PyQt6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QTabWidget, QLineEdit, QCompleter, QMenu, QLayout, QStyleFactory, QStyle, QDialog
+    QTabWidget,
+    QLineEdit,
+    QCompleter,
+    QMenu, QLayout,
+    QStyleFactory,
+    QStyle,
+    QDialog,
+    QComboBox
 )
 
 from PyQt6.QtGui import (
@@ -31,9 +38,11 @@ from functools import partial
 import eyed3
 import requests
 
-from catvibes import catvibes_lib as lib
+try:
+    from catvibes import catvibes_lib as lib
+except ImportError:
+    import catvibes_lib as lib
 
-lib.init()
 playlists = lib.playlists
 song_data = lib.song_data
 
@@ -51,15 +60,28 @@ class MainWindow(QMainWindow):
 
         playlists_widget = QTabWidget()
 
-        def refresh_tab():
-            playlists_widget.currentWidget().refresh()
-            # print("tab refreshed ")
+        new_playlist = QWidget()
 
-        playlists_widget.currentChanged.connect(refresh_tab)
+        def on_tab_change():
+            if playlists_widget.currentWidget() != new_playlist:
+                playlists_widget.currentWidget().refresh()
+            else:
+                dialog = NewPlaylistDialog()
+                r = dialog.exec()
+                if r == 100:
+                    name = dialog.text.text()
+                    temp = lib.Pointer([])
+                    lib.data.load(lib.playlist_dir.joinpath(name), temp, default=[])
+                    playlists.val[name] = temp
+                    playlists_widget.insertTab(len(playlists.val.keys()), PlaylistWidget(temp), name)
+                playlists_widget.setCurrentIndex(len(playlists.val.keys()))
+
+        playlists_widget.currentChanged.connect(on_tab_change)
 
         playlists_widget.addTab(SongsWidget(), "Songs")
         for name, playlist in playlists.val.items():
             playlists_widget.addTab(PlaylistWidget(playlist), name)
+        playlists_widget.addTab(new_playlist, "+")
 
         layout.addWidget(playlists_widget, 0, 0)
         layout.setColumnStretch(0, 2)
@@ -118,6 +140,11 @@ class PlaylistWidget(QWidget):
         completion.setCompletionMode(QCompleter.CompletionMode.InlineCompletion)
         self.search.setCompleter(completion)
         layout.addWidget(self.search, 0, 2)
+        self.searchtype = QComboBox()
+        self.searchtype.addItem("songs")
+        self.searchtype.addItem("videos")
+        self.searchtype.setEditable(False)
+        layout.addWidget(self.searchtype,0,3)
         self.playlistarea = QScrollArea()
         self.playlistarea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.playlistbox = QWidget()
@@ -140,29 +167,15 @@ class PlaylistWidget(QWidget):
     def find_song(self):
 
         def finish():
-            # print("proc finished")
-            nonlocal p
-            if p.exitCode() == 0:
-                # print("sucessfully downloaded", song_info["title"])
-                song_data.val[song_info["videoId"]] = song_info
-                self.playlist.val.append(song_id)
-                self.refresh()
-            p = None
+            self.playlist.val.append(song_info["videoId"])
+            self.refresh()
 
-        song_infos = lib.yt.search(self.search.text(), "songs", limit=1)[:lib.config.val["results"]]
+        song_infos = lib.yt.search(self.search.text(), self.searchtype.currentText(), limit=1)[:lib.config.val["results"]]
         dialog = ChooseSongDialog(song_infos)
         r = dialog.exec()
         if r >= 100:
             song_info = song_infos[r - 100]
-            song_id = song_info["videoId"]
-            p = QProcess()
-            p.finished.connect(finish)
-            p.start("yt-dlp",
-                    ["--extract-audio",
-                     "--audio-format", "mp3",
-                     "--audio-quality", "0",
-                     "--embed-thumbnail", "--embed-metadata",
-                     "-o", f"{lib.song_dir}/{song_id}.mp3", f"https://www.youtube.com/watch?v={song_id}"])
+            lib.download_song(song_info, on_finished=finish)
 
     def shuffle(self):
         if player.playlist == []:
@@ -223,7 +236,18 @@ class ChooseSongDialog(QDialog):
             wid.setStyleSheet("font-size: 20px")
             layout.addWidget(wid, i, 0)
         self.setLayout(layout)
-        self.setFixedSize(550, 300)
+        self.setFixedSize(550, len(songs)*80+60)
+
+class NewPlaylistDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Enter Name")
+        layout = QVBoxLayout()
+        self.text = QLineEdit()
+        self.text.returnPressed.connect(partial(self.done, 100))
+        layout.addWidget(self.text)
+        self.setLayout(layout)
+        self.setFixedSize(300,60)
 
 
 class SongsWidget(PlaylistWidget):
@@ -231,7 +255,9 @@ class SongsWidget(PlaylistWidget):
         playlist = lib.Pointer(list(song_data.val.keys()))
         super().__init__(playlist)
         self.layout().removeWidget(self.search)
+        self.layout().removeWidget(self.searchtype)
         self.search.setParent(None)
+        self.searchtype.setParent(None)
 
     def remove_song(self, n):
         del song_data.val[self.playlist.val[n]]

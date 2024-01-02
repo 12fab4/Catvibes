@@ -1,7 +1,10 @@
 import _curses
 import curses
 
-from catvibes import catvibes_lib as lib
+try:
+    from catvibes import catvibes_lib as lib
+except ImportError:
+    import catvibes_lib as lib
 
 
 def ui(screen):
@@ -90,7 +93,6 @@ def ui(screen):
 
 def main():
     global config, playlists, song_data
-    lib.init()
 
     config = lib.config
     playlists = lib.playlists
