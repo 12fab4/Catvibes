@@ -8,6 +8,7 @@ import shutil
 import signal
 import subprocess as sp
 import time
+import logging
 from pathlib import Path
 from platform import system
 from PyQt6.QtCore import QProcess
@@ -38,6 +39,7 @@ config = Pointer({})
 def init():
     """loads files and config"""
     global playlists, song_data, data, main_dir, config, song_dir, data_dir, playlist_dir, music_player,config_location
+
     workdir = Path(__file__).parent
     default_config_location = workdir.joinpath("config")
     config_base = os.environ.get('APPDATA') or \
@@ -57,6 +59,7 @@ def init():
     data_dir = main_dir.joinpath("data")
     playlist_dir = main_dir.joinpath("playlists")
 
+    logging.basicConfig(filename=str(main_dir.joinpath("catvibes.log")),encoding="utf-8", format="%(asctime)s: %(message)s", datefmt="%m/%d/%y %H:%M:%S", level=logging.INFO)
     # loads the song db
     data.load(data_dir.joinpath("data"), song_data, {})
 
@@ -64,6 +67,7 @@ def init():
     with os.scandir(playlist_dir) as files:
         for f in files:
             name = Path(f).stem
+            logging.info(f"loaded playlist {name}")
             temp = Pointer([])
             data.load(Path(f), temp)
             playlists.val[name] = temp
@@ -490,8 +494,9 @@ def download_song(song_info: dict, wait = False, on_finished = None) -> None:
     def finished():
         nonlocal p, on_finished
         if p.exitCode() != 0:
-            error = p.errorString
+            error = p.readAllStandardError().data().decode()
             p = None
+            logging.warn(f"an error occured during download of {song_info['title']}:\n{error}")
             raise Exception(f"Could not download a song. Error:\n{error}")
         p = None
         song_data.val[song_info["videoId"]] = song_info
@@ -499,9 +504,11 @@ def download_song(song_info: dict, wait = False, on_finished = None) -> None:
         #     data_file.write(json.dumps(song_data.val))
         if on_finished is not None:
             on_finished()
+        logging.info("finished")
 
     p = QProcess()
     p.finished.connect(finished)
+    logging.info(f"started download of song: {song_info['title']}")
     p.start(
         "yt-dlp",
         ["--extract-audio",

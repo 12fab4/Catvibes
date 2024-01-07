@@ -3,3 +3,5 @@ __pycache__/*
 src/Catvibes.egg-info/*
 dist/*
 src/catvibes/__pycache__/*
+.kdev4/*
+Catvibes.kdev4
