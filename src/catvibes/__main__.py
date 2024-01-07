@@ -35,30 +35,48 @@ def main():
             return
 
     if "--clean" in params:
+        print("clearing songdir")
         all_songs = []
         for playlist in lib.playlists.val.values():
             all_songs.extend(playlist.val)
         with os.scandir(lib.song_dir) as files:
             for file in files:
-                if Path(file).stem not in all_songs:
+                file = Path(file)
+                if file.stem not in all_songs:
+                    if file.stem in lib.song_data.val:
+                        print(f"removing {lib.song_data.val[file.stem]['title']}")
+                        del lib.song_data.val[file.stem]
+                    else:
+                        print(f"removing {file}")
                     os.remove(file)
+        all_songs_in_db = list(lib.song_data.val.keys())
+        for song in all_songs_in_db:
+            if song not in all_songs:
+                print(f"removing {lib.song_data.val[song]['title']} from database")
+                del lib.song_data.val[song]
+        lib.data.save_all()
 
     if "--import" in params:
         try:
             file = Path(params[params.index("--import") + 1])
-            assert file.is_file(), "please point to a file"
         except:
             print("could not find file. try specifying it with eg. --import /path/to/file")
             return
+        assert file.is_file(), "please point to a file"
         playlist = lib.Pointer([])
-        lib.data.load(file, playlist)
+        try:
+            lib.data.load(file, playlist)
+        except:
+            print("Not a valid playlistfile")
+            return
         assert type(playlist.val) == list, "Not a valid playlistfile"
-        assert all([type(x) == str for x in playlist.val]), "Not a valid playlistfile"
+        assert all([type(x) is str for x in playlist.val]), "Not a valid playlistfile"
         copy2(file, lib.playlist_dir)
         for song in playlist.val:
             song_info = lib.yt.get_song(song)["videoDetails"]
             print(f"\rdownloading {song_info['title']}", end = "")
             lib.download_song(song_info ,wait=True)
+            print(" " * (len(song_info['title']) + 13), end = "")
         lib.playlists.val[file.stem] = playlist
 
     if "--gui" in params:
