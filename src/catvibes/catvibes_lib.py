@@ -15,8 +15,6 @@ from PyQt6.QtCore import QProcess
 
 import ytmusicapi
 
-yt = ytmusicapi.YTMusic()
-
 # placeholders for directories
 main_dir: Path
 song_dir: Path
@@ -38,7 +36,7 @@ config = Pointer({})
 
 def init():
     """loads files and config"""
-    global playlists, song_data, data, main_dir, config, song_dir, data_dir, playlist_dir, music_player,config_location
+    global playlists, song_data, data, main_dir, config, song_dir, data_dir, playlist_dir, music_player,config_location, yt
 
     workdir = Path(__file__).parent
     default_config_location = workdir.joinpath("config")
@@ -59,7 +57,7 @@ def init():
     data_dir = main_dir.joinpath("data")
     playlist_dir = main_dir.joinpath("playlists")
 
-    logging.basicConfig(filename=str(main_dir.joinpath("catvibes.log")),encoding="utf-8", format="%(asctime)s: %(message)s", datefmt="%m/%d/%y %H:%M:%S", level=logging.INFO)
+    logging.basicConfig(filename=str(main_dir.joinpath("catvibes.log")),filemode="w", encoding="utf-8", format="%(asctime)s: %(message)s", datefmt="%m/%d/%y %H:%M:%S", level=logging.INFO)
     # loads the song db
     data.load(data_dir.joinpath("data"), song_data, {})
 
@@ -71,8 +69,34 @@ def init():
             temp = Pointer([])
             data.load(Path(f), temp)
             playlists.val[name] = temp
-    music_player = MusicPlayerClass()
+    music_player = MusicPlayer()
+    yt = YTInterface()
 
+class YTInterface:
+    offline_error = Exception("you are offline")
+    
+    def __init__(self):
+        self.yt = ytmusicapi.YTMusic()
+        self.connect()
+    
+    def search(self, *args,**kwargs):
+        if self.online:
+            return self.yt.search(*args, **kwargs)
+        else:
+            raise self.offline_error
+    
+    def get_search_suggestions(self, *args, **kwargs):
+        if self.online:
+            return self.yt.get_search_suggestions(*args, **kwargs)
+        else:
+            raise self.offline_error
+    
+    def connect(self):
+        self.online = True
+        try:
+            yt.search("test")
+        except:
+            self.online = False
 
 class DisplayTab:
     """# base_class for other tabs"""
@@ -297,7 +321,7 @@ class Datamanager:
                 f.write(json.dumps(content))
 
 
-class MusicPlayerClass:
+class MusicPlayer:
     """a class for playing files"""
 
     def __init__(self):
@@ -306,7 +330,7 @@ class MusicPlayerClass:
         if system() == "Linux" or system() == "Darwin":
             self.proc = sp.Popen("echo")
         else:
-            self.proc = sp.Popen(["echo."],shell = True)
+            self.proc = sp.Popen(["echo."], shell = True)
         self.playing: bool = False
         self.timer = 0
 
@@ -377,7 +401,7 @@ class MusicPlayerClass:
         return None
 
 
-class MusicPlayerWithScreen(MusicPlayerClass):
+class MusicPlayerWithScreen(MusicPlayer):
     def __init__(self, screen):
         super().__init__()
         self.screen = screen
@@ -399,7 +423,7 @@ class MusicPlayerWithScreen(MusicPlayerClass):
         self.disp()
 
 
-music_player: MusicPlayerClass  # placeholder for musicplayer
+music_player: MusicPlayer  # placeholder for musicplayer
 data: Datamanager  # placeholder for Datamanager
 
 
