@@ -56,6 +56,7 @@ class MainWindow(QMainWindow):
 
         global player
         player = PlayerWidget()
+        lib.music_player = player
         layout.addWidget(player, 0, 1)
 
         playlists_widget = QTabWidget()
@@ -160,22 +161,23 @@ class PlaylistWidget(QWidget):
 
     def search_suggest(self, text: str):
         if len(text) > 2:
-            completions = lib.yt.get_search_suggestions(text)
             self.searchresults.clear()
-            self.searchresults.appendRow([QStandardItem(val) for val in completions])
+            if lib.yt.online:
+                completions = lib.yt.get_search_suggestions(text)
+                self.searchresults.appendRow([QStandardItem(val) for val in completions])
 
     def find_song(self):
+        if lib.yt.online:
+            def finish():
+                self.playlist.val.append(song_info["videoId"])
+                self.refresh()
 
-        def finish():
-            self.playlist.val.append(song_info["videoId"])
-            self.refresh()
-
-        song_infos = lib.yt.search(self.search.text(), self.searchtype.currentText(), limit=1)[:lib.config.val["results"]]
-        dialog = ChooseSongDialog(song_infos)
-        r = dialog.exec()
-        if r >= 100:
-            song_info = song_infos[r - 100]
-            lib.download_song(song_info, on_finished=finish)
+            song_infos = lib.yt.search(self.search.text(), self.searchtype.currentText(), limit=1)[:lib.config.val["results"]]
+            dialog = ChooseSongDialog(song_infos)
+            r = dialog.exec()
+            if r >= 100:
+                song_info = song_infos[r - 100]
+                lib.download_song(song_info, on_finished=finish)
 
     def shuffle(self):
         if player.playlist == []:
@@ -268,10 +270,10 @@ class SongsWidget(PlaylistWidget):
         super().refresh()
 
 
-class PlayerWidget(QWidget, lib.MusicPlayerClass):
+class PlayerWidget(QWidget, lib.MusicPlayer):
     def __init__(self):
         QWidget.__init__(self)
-        lib.MusicPlayerClass.__init__(self)
+        lib.MusicPlayer.__init__(self)
 
         layout = QGridLayout()
         layout.setRowStretch(0, 3)
@@ -357,13 +359,15 @@ def clear_layout(layout: QLayout):
         layout.itemAt(i).widget().setParent(None)
 
 
-def main():
+def main(func):
+    """initialises the GUI. func is a callable and executed right before the mainloop"""
     app = QApplication(sys.argv)
     theme = lib.config.val["theme"]
     print(theme, QStyleFactory.keys())
     if theme in QStyleFactory.keys():
         app.setStyle(theme)
     window = MainWindow()
+    func()
     window.show()
     try:
         app.exec()

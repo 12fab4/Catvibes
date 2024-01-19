@@ -23,7 +23,11 @@ def main():
             "    --clean: delete all songs not in playlists (to save memory)\n"
             "    --reset: completely erases all data\n"
             "    --import [/path/to/file]: imports a playlist from a file and downloads all songs\n"
-            "    --gui: launch using a Qt GUI\n"
+            "    --gui / -g: launch using a Qt GUI\n"
+            "    -s / --start [mode]: immediately start playing\n"
+            "       mode can be random or r to play all songs shuffled,\n"
+            "       start or s to play all songs in order or\n"
+            "       a playlistname\n"
             "\n"
             "when launched with no Options a curses based UI will be used\n"
         )
@@ -55,6 +59,7 @@ def main():
                 print(f"removing {lib.song_data.val[song]['title']} from database")
                 del lib.song_data.val[song]
         lib.data.save_all()
+        return
 
     if "--import" in params:
         try:
@@ -78,11 +83,40 @@ def main():
             lib.download_song(song_info ,wait=True)
             print(" " * (len(song_info['title']) + 13), end = "")
         lib.playlists.val[file.stem] = playlist
+        return
 
-    if "--gui" in params:
-        qt_gui.main()
-    if params == []:
-        catvibes.main()
+
+    if "--start" in params or "-s":
+        global start
+        try:
+            mode = params[params.index("--start") + 1]
+        except ValueError:
+            mode = params[params.index("-s") + 1]
+        match mode:
+            case "random" | "r":
+                def start():
+                    lib.music_player.add_list(list(map(lib.song_file,list(lib.song_data.val.keys()))))
+                    lib.music_player.shuffle()
+                    lib.music_player.toggle()
+            case "start" | "s":
+                def start():
+                    lib.music_player.add_list(list(map(lib.song_file,lib.song_data.val.keys())))
+                    lib.music_player.toggle()
+            case _:
+                for playlist in lib.playlists.val.keys():
+                    if mode == playlist:
+                        def start():
+                            lib.music_player.add_list(list(map(lib.song_file, lib.playlists.val[playlist])))
+                            lib.music_player.toggle()
+
+    if start == None:
+        def start():
+            pass
+
+    if "--gui" in params or "-g" in params:
+        qt_gui.main(start)
+    else:
+        catvibes.main(start)
 
 
 if __name__ == "__main__":

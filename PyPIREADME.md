@@ -22,7 +22,7 @@ it also requires ffplay
 
 On linux install ffmpeg which is available on debian-based and arch-based distros and probably already installed
 
-On Windows use the following link: https://www.ffmpeg.org/download.html#build-windows, select windows and chose one of the available .exe files
+On Windows follow this tutorial: https://phoenixnap.com/kb/ffmpeg-windows
 
 
 # Controls

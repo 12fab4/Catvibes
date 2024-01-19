@@ -7,7 +7,7 @@ except ImportError:
     import catvibes_lib as lib
 
 
-def ui(screen):
+def ui(screen,func):
     """the main function running the UI"""
     screen.clear()
     screen.refresh()
@@ -59,6 +59,7 @@ def ui(screen):
     tabbar()
     tabs[tab].disp()
     key = " "
+    func()
     while key not in ("q", "\x1b"):  # UI mainloop
         if key == "KEY_RIGHT":
             tab = (tab + 1) % len(tabs)
@@ -91,7 +92,8 @@ def ui(screen):
         screen.timeout(-1)
 
 
-def main():
+def main(func):
+    """initialises the terminal UI. func is executed right before the mainloop"""
     global config, playlists, song_data
 
     config = lib.config
@@ -99,7 +101,7 @@ def main():
     song_data = lib.song_data
 
     try:
-        curses.wrapper(ui)
+        curses.wrapper(ui,func)
     finally:
         lib.music_player.proc.kill()
         curses.curs_set(1)
