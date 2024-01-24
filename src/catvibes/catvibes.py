@@ -60,6 +60,7 @@ def ui(screen,func):
     tabs[tab].disp()
     key = " "
     func()
+    lib.music_player.toggle()
     while key not in ("q", "\x1b"):  # UI mainloop
         if key == "KEY_RIGHT":
             tab = (tab + 1) % len(tabs)

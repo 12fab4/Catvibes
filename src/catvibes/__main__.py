@@ -86,7 +86,7 @@ def main():
         return
 
 
-    if "--start" in params or "-s":
+    if "--start" in params or "-s" in params:
         global start
         try:
             mode = params[params.index("--start") + 1]
@@ -97,19 +97,16 @@ def main():
                 def start():
                     lib.music_player.add_list(list(map(lib.song_file,list(lib.song_data.val.keys()))))
                     lib.music_player.shuffle()
-                    lib.music_player.toggle()
             case "start" | "s":
                 def start():
                     lib.music_player.add_list(list(map(lib.song_file,lib.song_data.val.keys())))
-                    lib.music_player.toggle()
             case _:
                 for playlist in lib.playlists.val.keys():
                     if mode == playlist:
                         def start():
                             lib.music_player.add_list(list(map(lib.song_file, lib.playlists.val[playlist])))
-                            lib.music_player.toggle()
 
-    if start == None:
+    if 'start' not in globals():
         def start():
             pass
 
