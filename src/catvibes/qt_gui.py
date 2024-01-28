@@ -29,8 +29,10 @@ from PyQt6.QtGui import (
 
 from PyQt6.QtCore import (
     QTimer,
-    Qt, QProcess, QSize
+    Qt, QSize
 )
+
+from typing import Callable
 
 import sys
 from pathlib import Path
@@ -145,7 +147,7 @@ class PlaylistWidget(QWidget):
         self.searchtype.addItem("songs")
         self.searchtype.addItem("videos")
         self.searchtype.setEditable(False)
-        layout.addWidget(self.searchtype,0,3)
+        layout.addWidget(self.searchtype, 0, 3)
         self.playlistarea = QScrollArea()
         self.playlistarea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.playlistbox = QWidget()
@@ -240,6 +242,7 @@ class ChooseSongDialog(QDialog):
         self.setLayout(layout)
         self.setFixedSize(550, len(songs)*80+60)
 
+
 class NewPlaylistDialog(QDialog):
     def __init__(self):
         super().__init__()
@@ -249,7 +252,7 @@ class NewPlaylistDialog(QDialog):
         self.text.returnPressed.connect(partial(self.done, 100))
         layout.addWidget(self.text)
         self.setLayout(layout)
-        self.setFixedSize(300,60)
+        self.setFixedSize(300, 60)
 
 
 class SongsWidget(PlaylistWidget):
@@ -359,7 +362,7 @@ def clear_layout(layout: QLayout):
         layout.itemAt(i).widget().setParent(None)
 
 
-def main(func):
+def main(func=lambda: None):
     """initialises the GUI. func is a callable and executed right before the mainloop"""
     app = QApplication(sys.argv)
     theme = lib.config.val["theme"]

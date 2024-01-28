@@ -1,4 +1,5 @@
 # __main__.py
+import logging
 import os
 import sys
 from pathlib import Path
@@ -7,7 +8,9 @@ from shutil import copy2, rmtree
 try:
     from catvibes import catvibes, qt_gui, catvibes_lib as lib
 except ImportError:
-    import catvibes, qt_gui, catvibes_lib as lib
+    import catvibes
+    import qt_gui
+    import catvibes_lib as lib
 
 
 def main():
@@ -79,12 +82,11 @@ def main():
         copy2(file, lib.playlist_dir)
         for song in playlist.val:
             song_info = lib.yt.get_song(song)["videoDetails"]
-            print(f"\rdownloading {song_info['title']}", end = "")
-            lib.download_song(song_info ,wait=True)
-            print(" " * (len(song_info['title']) + 13), end = "")
+            print(f"\rdownloading {song_info['title']}", end="")
+            lib.download_song(song_info, wait=True)
+            print(" " * (len(song_info['title']) + 13), end="")
         lib.playlists.val[file.stem] = playlist
         return
-
 
     if "--start" in params or "-s" in params:
         global start
@@ -95,11 +97,11 @@ def main():
         match mode:
             case "random" | "r":
                 def start():
-                    lib.music_player.add_list(list(map(lib.song_file,list(lib.song_data.val.keys()))))
+                    lib.music_player.add_list(list(map(lib.song_file, list(lib.song_data.val.keys()))))
                     lib.music_player.shuffle()
             case "start" | "s":
                 def start():
-                    lib.music_player.add_list(list(map(lib.song_file,lib.song_data.val.keys())))
+                    lib.music_player.add_list(list(map(lib.song_file, lib.song_data.val.keys())))
             case _:
                 for playlist in lib.playlists.val.keys():
                     if mode == playlist:
@@ -117,4 +119,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logging.fatal(e)
