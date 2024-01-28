@@ -107,23 +107,35 @@ class SongWidget(QWidget):
             raise IndexError("Song not found")
         songinfo = song_data.val[song_id]
 
+        self.Button = QPushButton()
+        buttonlayout = QHBoxLayout()
+        self.Button.setLayout(buttonlayout)
+        self.Button.setFixedHeight(80)
+
         self.Icon = QLabel()
         self.Icon.setPixmap(song_cover_info(song_id)[0])
-        self.Icon.setFixedWidth(60)
-        self.Info = QLabel(lib.song_string(songinfo))
+        self.Icon.setFixedSize(60, 60)
+        buttonlayout.addWidget(self.Icon)
+
+        self.Info = QLabel(lib.string_replace(lib.config.val["songstring_qt"], songinfo))
         self.Info.setMinimumWidth(200)
         self.Info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.Button = QPushButton("Play")
-        self.Button.setFixedWidth(100)
-        layout.addWidget(self.Icon)
-        layout.addWidget(self.Info, Qt.AlignmentFlag.AlignCenter)
+        buttonlayout.addWidget(self.Info)
+
+        self.MenuButton = QPushButton()
+        self.MenuButton.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_CommandLink))
+        self.MenuButton.setFixedSize(30, 80)
+
         layout.addWidget(self.Button)
+        layout.addWidget(self.MenuButton)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
-        self.setMinimumWidth(480)
+        self.setMinimumWidth(300)
 
 
 class PlaylistWidget(QWidget):
+    minimumwidth = 350
+
     def __init__(self, playlist: lib.Pointer) -> None:
         super().__init__()
         self.playlist = playlist
@@ -158,7 +170,7 @@ class PlaylistWidget(QWidget):
         self.playlistarea.setWidgetResizable(True)
         layout.addWidget(self.playlistarea, 1, 0, 2, 0)
         self.setLayout(layout)
-        self.setMinimumWidth(520)
+        self.setMinimumWidth(self.minimumwidth)
         self.setMinimumHeight(400)
 
     def search_suggest(self, text: str):
@@ -206,15 +218,15 @@ class PlaylistWidget(QWidget):
         wid = SongWidget(self.playlist.val[n])
         wid.Button.clicked.connect(partial(self.playsong, n))
         menu = QMenu()
-        append = menu.addAction("append")
-        remove = menu.addAction("remove")
+        append: QAction = menu.addAction("append")
+        remove: QAction = menu.addAction("remove")
         append.triggered.connect(partial(player.add, lib.song_file(self.playlist.val[n])))
         remove.triggered.connect(partial(self.remove_song, n))
 
-        def contextmenu(*args):
+        def contextmenu() -> None:
             menu.popup(QCursor.pos())
 
-        wid.Button.contextMenuEvent = contextmenu
+        wid.MenuButton.clicked.connect(contextmenu)
         return wid
 
     def remove_song(self, n):
@@ -315,14 +327,17 @@ class PlayerWidget(QWidget, lib.MusicPlayer):
         else:
             self.Button_play.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
 
+    def get_icon_scale(self) -> int:
+        size = self.parent().size()
+        h, w = size.height(), size.width()
+        return min(h - 150, w - PlaylistWidget.minimumwidth)
+
     def refresh(self, seconds: float):
         if self.playlist != []:
             self.query(seconds)
             song = self.song
-            size = self.parent().size()
-            h, w = size.height(), size.width()
             if player.song:
-                player.Icon.setPixmap(song_cover_info(player.song, min(h - 150, w - 600))[0])
+                player.Icon.setPixmap(song_cover_info(player.song, self.get_icon_scale())[0])
                 try:
                     self.prog_bar.setRange(0, song_data.val[song]["duration_seconds"])
                     self.prog_bar.setValue(int(self.timer))
@@ -336,7 +351,7 @@ class PlayerWidget(QWidget, lib.MusicPlayer):
     def play(self, file: Path):
         super().play(file)
         song = file.stem
-        cover, color = song_cover_info(song, 300)
+        cover, color = song_cover_info(song, self.get_icon_scale())
         self.Icon.setPixmap(cover)
         self.parent().size()
         colors = self.palette()

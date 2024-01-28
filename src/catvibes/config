@@ -1,1 +1,9 @@
-{"results": 3, "songstring": "TITLE - ARTIST - LENGHT", "maindirectory":"Musik/Catvibes", "infostring": "playing TITLE by ARTIST CURRENT_TIME BAR LENGHT", "barlenght": 10, "theme":"kvantum"}
+{
+    "results": 3,
+    "songstring": "TITLE - ARTIST - LENGHT",
+    "maindirectory": "Musik/Catvibes",
+    "infostring": "playing TITLE by ARTIST CURRENT_TIME BAR LENGHT",
+    "barlenght": 10,
+    "theme": "kvantum",
+    "songstring_qt": "TITLE\nARTIST\nLENGHT"
+}
