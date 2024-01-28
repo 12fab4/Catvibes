@@ -25,6 +25,7 @@ def main():
             "    -h / --help: show this help\n"
             "    --clean: delete all songs not in playlists (to save memory)\n"
             "    --reset: completely erases all data\n"
+            "    --reset-config: only erase config\n"
             "    --import [/path/to/file]: imports a playlist from a file and downloads all songs\n"
             "    --gui / -g: launch using a Qt GUI\n"
             "    -s / --start [mode]: immediately start playing\n"
@@ -40,6 +41,10 @@ def main():
             rmtree(lib.main_dir)
             rmtree(lib.config_location.parent)
             return
+
+    if "--reset-config" in params:
+        rmtree(lib.config_location.parent)
+        return
 
     if "--clean" in params:
         print("clearing songdir")
@@ -119,7 +124,4 @@ def main():
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        logging.fatal(e)
+    main()
