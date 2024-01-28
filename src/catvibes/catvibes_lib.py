@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 from platform import system
 from PyQt6.QtCore import QProcess
+from typing import Callable
 
 import ytmusicapi
 
@@ -36,13 +37,13 @@ config = Pointer({})
 
 def init():
     """loads files and config"""
-    global playlists, song_data, data, main_dir, config, song_dir, data_dir, playlist_dir, music_player,config_location, yt
+    global playlists, song_data, data, main_dir, config, song_dir, data_dir, playlist_dir, music_player, config_location, yt
 
     workdir = Path(__file__).parent
     default_config_location = workdir.joinpath("config")
     config_base = os.environ.get('APPDATA') or \
-                  os.environ.get('XDG_CONFIG_HOME') or \
-                  os.path.join(os.environ['HOME'], '.config')
+        os.environ.get('XDG_CONFIG_HOME') or \
+        os.path.join(os.environ['HOME'], '.config')
     config_location = Path(config_base).joinpath("Catvibes/config")
     if not Path.is_file(config_location):
         os.makedirs(config_location.parent, exist_ok=True)
@@ -57,7 +58,7 @@ def init():
     data_dir = main_dir.joinpath("data")
     playlist_dir = main_dir.joinpath("playlists")
 
-    logging.basicConfig(filename=str(main_dir.joinpath("catvibes.log")),filemode="w", encoding="utf-8", format="%(asctime)s: %(message)s", datefmt="%m/%d/%y %H:%M:%S", level=logging.INFO)
+    logging.basicConfig(filename=str(main_dir.joinpath("catvibes.log")), filemode="w", encoding="utf-8", format="%(asctime)s: %(message)s", datefmt="%m/%d/%y %H:%M:%S", level=logging.INFO)
     # loads the song db
     data.load(data_dir.joinpath("data"), song_data, {})
 
@@ -72,31 +73,42 @@ def init():
     music_player = MusicPlayer()
     yt = YTInterface()
 
+
 class YTInterface:
-    offline_error = Exception("you are offline")
-    
     def __init__(self):
         self.yt = ytmusicapi.YTMusic()
         self.connect()
-    
-    def search(self, *args,**kwargs):
+
+    def search(self, *args, **kwargs):
         if self.online:
             return self.yt.search(*args, **kwargs)
         else:
             raise self.offline_error
-    
+
     def get_search_suggestions(self, *args, **kwargs):
         if self.online:
             return self.yt.get_search_suggestions(*args, **kwargs)
         else:
             raise self.offline_error
-    
+
+    def get_song(self, song_id: str):
+        if self.online:
+            return self.yt.get_song(song_id)
+        else:
+            raise self.offline_error
+
     def connect(self):
         self.online = True
         try:
-            yt.search("test")
+            self.yt.search("test")
         except:
             self.online = False
+
+    @property
+    def offline_error(self) -> Exception:
+        self.connect()
+        return Exception("you are offline")
+
 
 class DisplayTab:
     """# base_class for other tabs"""
@@ -104,7 +116,7 @@ class DisplayTab:
     def __init__(self, window, title: str, linestart: int = 0):
         self.screen = window
         self.title = title
-        self.keyhandler = {}
+        self.keyhandler: dict[str, Callable] = {}
         self.line = linestart
         self.maxy, self.maxx = self.screen.getmaxyx()
         self.on_key("KEY_UP", self.up)
@@ -117,7 +129,6 @@ class DisplayTab:
     @property
     def maxlines(self) -> int:
         return 0
-
 
     def up(self):
         """goes one line up"""
@@ -156,7 +167,6 @@ class PlaylistTab(DisplayTab):
     @property
     def maxlines(self):
         return len(self.playlist.val)
-
 
     def disp(self):
         """displays the playlist on the screen"""
@@ -330,7 +340,7 @@ class MusicPlayer:
         if system() == "Linux" or system() == "Darwin":
             self.proc = sp.Popen("echo")
         else:
-            self.proc = sp.Popen(["echo."], shell = True)
+            self.proc = sp.Popen(["echo."], shell=True)
         self.playing: bool = False
         self.timer = 0
 
@@ -509,7 +519,7 @@ def info(screen, text: str, important=True) -> None:
         delline(screen, maxy, True)
 
 
-def download_song(song_info: dict, wait = False, on_finished = None) -> None:
+def download_song(song_info: dict, wait=False, on_finished=None) -> None:
     """downloads a song from a song_info dict returned by yt.search()"""
     song_id = song_info["videoId"]
     if Path.is_file(song_dir.joinpath(f"{song_id}")):
@@ -543,7 +553,6 @@ def download_song(song_info: dict, wait = False, on_finished = None) -> None:
     )
     if wait:
         p.waitForFinished()
-
 
 
 def song_file(song_id: str) -> Path:
@@ -592,7 +601,7 @@ def getmax(screen) -> tuple[int, int]:
     return maxy - 1, maxx - 1
 
 
-def addstr(screen, y: int, x: int, string: str, params = None):
+def addstr(screen, y: int, x: int, string: str, params=None) -> None:
     try:
         if params is not None:
             screen.addstr(y, x, string, params)

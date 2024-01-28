@@ -93,7 +93,7 @@ def ui(screen,func):
         screen.timeout(-1)
 
 
-def main(func):
+def main(func = lambda : None):
     """initialises the terminal UI. func is executed right before the mainloop"""
     global config, playlists, song_data
 
