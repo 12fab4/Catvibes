@@ -66,7 +66,6 @@ def main():
             if song not in all_songs:
                 print(f"removing {lib.song_data.val[song]['title']} from database")
                 del lib.song_data.val[song]
-        lib.data.save_all()
         return
 
     if "--import" in params:
@@ -91,6 +90,7 @@ def main():
             lib.download_song(song_info, wait=True)
             print(" " * (len(song_info['title']) + 13), end="")
         lib.playlists.val[file.stem] = playlist
+        lib.data.save_all()
         return
 
     if "--start" in params or "-s" in params:

@@ -1,5 +1,6 @@
 import _curses
 import curses
+from functools import partial
 import json
 import os
 import random
@@ -55,9 +56,12 @@ def init():
 
     main_dir = Path.home().joinpath(config.val["maindirectory"])
     song_dir = main_dir.joinpath("songs")
+    os.makedirs(song_dir, exist_ok=True)
     data_dir = main_dir.joinpath("data")
+    os.makedirs(data_dir, exist_ok=True)
     playlist_dir = main_dir.joinpath("playlists")
-
+    os.makedirs(playlist_dir, exist_ok=True)
+    data.create_if_not_exsisting(main_dir.joinpath("catvibes.log"), "")
     logging.basicConfig(filename=str(main_dir.joinpath("catvibes.log")), filemode="w", encoding="utf-8", format="%(asctime)s: %(message)s", datefmt="%m/%d/%y %H:%M:%S", level=logging.INFO)
     # loads the song db
     data.load(data_dir.joinpath("data"), song_data, {})
@@ -519,14 +523,13 @@ def info(screen, text: str, important=True) -> None:
         delline(screen, maxy, True)
 
 
-def download_song(song_info: dict, wait=False, on_finished=None) -> None:
+def download_song(song_info: dict, wait=False, on_finished=lambda: None) -> None:
     """downloads a song from a song_info dict returned by yt.search()"""
     song_id = song_info["videoId"]
     if Path.is_file(song_dir.joinpath(f"{song_id}")):
         return
 
-    def finished():
-        nonlocal p, on_finished
+    def finished(p: QProcess, on_finished: Callable):
         if p.exitCode() != 0:
             error = p.readAllStandardError().data().decode()
             p = None
@@ -541,7 +544,7 @@ def download_song(song_info: dict, wait=False, on_finished=None) -> None:
         logging.info("finished")
 
     p = QProcess()
-    p.finished.connect(finished)
+    p.finished.connect(partial(finished, p, on_finished))
     logging.info(f"started download of song: {song_info['title']}")
     p.start(
         "yt-dlp",
@@ -589,9 +592,20 @@ def format_time(seconds: int) -> str:
 
 def string_replace(string: str, song_info) -> str:
     """replaces varoius KEYs in a string like TITLE with the info in the song_info dict"""
-    string = string.replace("TITLE", song_info["title"])
-    string = string.replace("ARTIST", song_info["artists"][0]["name"])
-    string = string.replace("LENGHT", song_info["duration"])
+    if "title" in song_info:
+        string = string.replace("TITLE", song_info["title"])
+    else:
+        string = string.replace("TITLE", "")
+
+    if "artists" in song_info:
+        string = string.replace("ARTIST", song_info["artists"][0]["name"])
+    else:
+        string = string.replace("TITLE", "")
+
+    if "duration" in song_info:
+        string = string.replace("LENGHT", song_info["duration"])
+    else:
+        string = string.replace("TITLE", "")
     return string
 
 
