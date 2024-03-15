@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "Catvibes"
-version = "1.0.15"
+version = "1.0.21"
 description = "A musicplayer with a terminal and a Qt frontend"
 readme = "PyPIREADME.md"
 license = {file = "LICENSE"}
