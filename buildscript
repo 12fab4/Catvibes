@@ -1,0 +1,94 @@
+#! /usr/bin/bash
+
+# the name of the project
+PROJECT="catvibes"
+
+# colors for pretty output
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NOCOLOR='\033[0m'
+
+# prettier echo
+info(){
+    echo -e "$BLUE $* $NOCOLOR"
+}
+
+# exit with errorcode and print errormessage
+error(){
+    CODE=$1
+    shift
+    echo -e "$RED $* $NOCOLOR" >&2
+    exit "$CODE"
+}
+
+# clears up pyinstaller files
+clearup(){
+    rm -rf dist
+    rm -rf build
+    rm $PROJECT.spec
+}
+
+# runs a command and also prints it
+run() {
+    echo -e "$GREEN running $* $NOCOLOR"
+    COMMAND=$1
+    shift
+    $COMMAND "$@"
+}
+
+# the path to the sourcefiles from the project root (where the script should be run)
+SRCPATH="src/$PROJECT"
+# the pyinstaller command for Linux
+PYINSTALLER="pyinstaller --name=$PROJECT --collect-all ytmusicapi --add-data $SRCPATH/config:$PROJECT --onefile $SRCPATH/__main__.py"
+
+clearup
+
+info moving previous executables to executables_old folder
+run mv executables executables_old 
+
+virtualenv build_env
+
+info starting Linux build
+
+source build_env/bin/activate
+info installing python modules
+run pip install pyqt6 yt-dlp ytmusicapi eyeD3 pyinstaller
+info running pyinstaller
+run $PYINSTALLER || error 1 "error in Linux build"
+deactivate
+
+info finished Linux build
+
+info saving executable to executables dir
+mkdir executables
+run mv dist/$PROJECT executables
+
+clearup
+
+info starting Windows build
+
+if [[ "$(dir | grep ffmpeg)" == "" ]]; then
+    info getting ffplay executable
+    run curl https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-2024-03-20-git-e04c638f5f-full_build.7z > ffmpeg.7z
+    run 7z e ffmpeg.7z -offmpeg
+    rm ffmpeg.7z
+    info ffplay at ffmpeg/ffplay.exe
+
+fi
+# added --add-binary for ffmpeg
+FFMPEGIMPORT="--add-binary ffmpeg/ffplay.exe:. --add-binary ffmpeg/ffmpeg.exe:. --add-binary ffmpeg/ffprobe.exe:."
+# pyinstaller command for Windows
+PYINSTALLER_WIN="pyinstaller --name=$PROJECT --collect-all ytmusicapi --add-data $SRCPATH/config:$PROJECT $FFMPEGIMPORT --onefile $SRCPATH/__main__.py"
+
+WINEPREFIX=~/Wine/Development run wine cmd /c cd $PWD \& $PYINSTALLER_WIN || error 1 "error in Windows build. Is a correct Wineprefix setup at HOME/Wine/Development?"
+
+info finished Windows build
+
+info saving executable to executables dir
+run mv dist/$PROJECT.exe executables
+
+info deleting old executables as nothing failed
+run rm -rf executables_old
+
+clearup

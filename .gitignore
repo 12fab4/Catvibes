@@ -5,3 +5,8 @@ dist/*
 src/catvibes/__pycache__/*
 .kdev4/*
 Catvibes.kdev4
+build_env/*
+catvibes.spec
+build/*
+executables/*
+ffmpeg/*
