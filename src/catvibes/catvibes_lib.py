@@ -12,7 +12,7 @@ import time
 import logging
 from pathlib import Path
 from platform import system
-from PyQt6.QtCore import QProcess
+from PyQt6.QtCore import QThread
 import threading as th
 from typing import Callable
 

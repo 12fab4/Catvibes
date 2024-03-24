@@ -29,7 +29,9 @@ from PyQt6.QtGui import (
 
 from PyQt6.QtCore import (
     QTimer,
-    Qt, QSize
+    Qt, QSize,
+    QThread,
+    pyqtSignal
 )
 
 from typing import Callable
@@ -133,6 +135,19 @@ class SongWidget(QWidget):
         self.setMinimumWidth(300)
 
 
+class thread(QThread):
+    ended = pyqtSignal(object)
+
+    def __init__(self, parent, func):
+        super().__init__()
+        self.setParent(parent)
+        self.func = func
+
+    def run(self):
+        self.func()
+        self.ended.emit("")
+
+
 class PlaylistWidget(QWidget):
     minimumwidth = 350
 
@@ -191,7 +206,9 @@ class PlaylistWidget(QWidget):
             r = dialog.exec()
             if r >= 100:
                 song_info = song_infos[r - 100]
-                lib.download_song(song_info, on_finished=finish)
+                th = thread(self, lambda: lib.download_song(song_info))
+                th.ended.connect(finish)
+                th.start()
 
     def shuffle(self):
         if player.playlist == []:
