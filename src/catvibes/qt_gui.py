@@ -24,7 +24,7 @@ from PyQt6.QtGui import (
     QPalette,
     QPixmap,
     QImage,
-    QStandardItemModel, QStandardItem, QCursor, QResizeEvent, QIcon, QFont
+    QStandardItemModel, QStandardItem, QCursor, QIcon
 )
 
 from PyQt6.QtCore import (
@@ -34,7 +34,6 @@ from PyQt6.QtCore import (
     pyqtSignal
 )
 
-from typing import Callable
 
 import sys
 from pathlib import Path
@@ -93,7 +92,7 @@ class MainWindow(QMainWindow):
 
         self.timer = QTimer()
         self.timer.start(100)
-        self.timer.timeout.connect(partial(player.refresh, self.timer.interval() / 1000))
+        self.timer.timeout.connect(player.refresh)
 
         central_widget = QWidget()
         central_widget.setLayout(layout)
@@ -349,9 +348,9 @@ class PlayerWidget(QWidget, lib.MusicPlayer):
         h, w = size.height(), size.width()
         return min(h - 150, w - PlaylistWidget.minimumwidth)
 
-    def refresh(self, seconds: float):
+    def refresh(self):
         if self.playlist != []:
-            self.query(seconds)
+            self.query()
             song = self.song
             if player.song:
                 player.Icon.setPixmap(song_cover_info(player.song, self.get_icon_scale())[0])
@@ -407,7 +406,7 @@ def main(func=lambda: None):
     try:
         app.exec()
     finally:
-        player.proc.kill()
+        player.proc.stop()
         lib.data.save_all()
 
 
