@@ -89,7 +89,7 @@ def ui(screen,func):
                 key = screen.getkey()
             except curses.error:
                 key = -1
-            lib.music_player.query(0.1)
+            lib.music_player.query()
         screen.timeout(-1)
 
 
@@ -104,7 +104,7 @@ def main(func = lambda : None):
     try:
         curses.wrapper(ui,func)
     finally:
-        lib.music_player.proc.kill()
+        lib.music_player.proc.stop()
         curses.curs_set(1)
         lib.data.save_all()
 

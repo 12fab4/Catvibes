@@ -3,6 +3,23 @@
 # the name of the project
 PROJECT="catvibes"
 
+# the path to the sourcefiles from the project root (where the script should be run)
+SRCPATH="src/$PROJECT"
+# pyinstaller python libs to collect fully (e.g. ytmusicapi)
+COLLECTALL="--collect-all ytmusicapi --collect-all yt_dlp"
+# additional data to include
+ADDDATA="--add-data $SRCPATH/config:$PROJECT"
+# hidden imports (sometimes pyinstaller does not work without those)
+HIDDENIMPORT="--hidden-import yt_dlp.utils._deprecated --hidden-import yt_dlp.compat._legacy"
+# python modules used
+PYTHONMODULES="pyqt6 yt-dlp ytmusicapi eyeD3 python-vlc"
+# additional binaries for windows
+# --add-binary for ffmpeg
+WINIMPORT="--add-binary ffmpeg/ffplay.exe:. --add-binary ffmpeg/ffmpeg.exe:. --add-binary ffmpeg/ffprobe.exe:. --add-binary VLClibs/libvlc.dll:. --add-binary VLClibs/libvlccore.dll:."
+# bonus pyinstaller args
+ARGS="--onefile --log-level WARN"
+
+
 # colors for pretty output
 BLUE='\033[0;34m'
 RED='\033[0;31m'
@@ -37,23 +54,29 @@ run() {
     $COMMAND "$@"
 }
 
-# the path to the sourcefiles from the project root (where the script should be run)
-SRCPATH="src/$PROJECT"
-# the pyinstaller command for Linux
-PYINSTALLER="pyinstaller --name=$PROJECT --collect-all ytmusicapi --add-data $SRCPATH/config:$PROJECT --onefile $SRCPATH/__main__.py"
+
 
 clearup
+
+info "building Project $PROJECT at $PWD$SRCPATH"
+info "Dependencies: $PYTHONMODULES"
+
 
 info moving previous executables to executables_old folder
 run mv executables executables_old 
 
-virtualenv build_env
+run rm -rf build_env
+run virtualenv -q build_env
 
+# command to pip all the dependencies
+PIPINSTALL="pip install --upgrade -q pyinstaller pyinstaller-hooks-contrib $PYTHONMODULES"
+# the pyinstaller command for Linux
+PYINSTALLER="pyinstaller --name=$PROJECT $COLLECTALL $ADDDATA $HIDDENIMPORT $ARGS $SRCPATH/__main__.py"
 info starting Linux build
 
 source build_env/bin/activate
 info installing python modules
-run pip install pyqt6 yt-dlp ytmusicapi eyeD3 pyinstaller
+run $PIPINSTALL
 info running pyinstaller
 run $PYINSTALLER || error 1 "error in Linux build"
 deactivate
@@ -76,12 +99,10 @@ if [[ "$(dir | grep ffmpeg)" == "" ]]; then
     info ffplay at ffmpeg/ffplay.exe
 
 fi
-# added --add-binary for ffmpeg
-FFMPEGIMPORT="--add-binary ffmpeg/ffplay.exe:. --add-binary ffmpeg/ffmpeg.exe:. --add-binary ffmpeg/ffprobe.exe:."
 # pyinstaller command for Windows
-PYINSTALLER_WIN="pyinstaller --name=$PROJECT --collect-all ytmusicapi --add-data $SRCPATH/config:$PROJECT $FFMPEGIMPORT --onefile $SRCPATH/__main__.py"
+PYINSTALLER_WIN="pyinstaller --name=$PROJECT $COLLECTALL $ADDDATA $HIDDENIMPORT $WINIMPORT $ARGS $SRCPATH/__main__.py"
 
-WINEPREFIX=~/Wine/Development run wine cmd /c cd $PWD \& $PYINSTALLER_WIN || error 1 "error in Windows build. Is a correct Wineprefix setup at HOME/Wine/Development?"
+WINEPREFIX=~/Wine/Development WINEDEBUG=fixme-all run wine cmd /c cd $PWD \& $PIPINSTALL \& $PYINSTALLER_WIN || error 1 "error in Windows build. Is a correct Wineprefix setup at HOME/Wine/Development?"
 
 info finished Windows build
 

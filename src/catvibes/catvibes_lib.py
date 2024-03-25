@@ -1,18 +1,15 @@
 import _curses
 import curses
-from functools import partial
+import sys
 import json
 import os
 import random
 import re
 import shutil
-import signal
-import subprocess as sp
 import time
 import logging
 from pathlib import Path
-from platform import system
-from PyQt6.QtCore import QThread
+import vlc
 import threading as th
 from typing import Callable
 
@@ -41,7 +38,9 @@ config = Pointer({})
 def init():
     """loads files and config"""
     global playlists, song_data, data, main_dir, config, song_dir, data_dir, playlist_dir, music_player, config_location, yt
-
+    # fix for pyinstaller & python-vlc
+    if sys.platform.startswith("linux"):
+        os.environ["VLC_PLUGIN_PATH"] = "/usr/lib64/vlc/plugins"
     workdir = Path(__file__).parent
     default_config_location = workdir.joinpath("config")
     config_base = os.environ.get('APPDATA') or \
@@ -343,26 +342,25 @@ class MusicPlayer:
     def __init__(self) -> None:
         self.playlist: list = []
         self.counter: int = -1
-        if system() == "Linux" or system() == "Darwin":
-            self.proc = sp.Popen("echo")
-        else:
-            self.proc = sp.Popen(["echo."], shell=True)
+        self.proc = vlc.MediaPlayer()
         self.playing: bool = False
-        self.timer = 0
+
+    @property
+    def timer(self):
+        return int(self.proc.get_time() / 1000)
 
     def play(self, file: Path):
-        self.proc.kill()
-        self.proc = sp.Popen(["ffplay", "-v", "0", "-nodisp", "-autoexit", file])
+        self.proc.set_media(vlc.Media(file))
+        self.proc.play()
         self.playing = True
-        self.timer = 0
 
     def pause(self):
         self.playing = False
-        self.proc.send_signal(signal.SIGSTOP)
+        self.proc.pause()
 
     def continu(self):
         self.playing = True
-        self.proc.send_signal(signal.SIGCONT)
+        self.proc.play()
 
     def toggle(self):
         if self.playing:
@@ -384,16 +382,13 @@ class MusicPlayer:
         self.playlist = []
         self.counter = -1
 
-    def query(self, seconds: float):
-        if self.proc.poll() is not None:
+    def query(self):
+        if self.proc.get_state() == 6:
             if self.counter < len(self.playlist) - 1:
                 self.counter += 1
                 self.play(self.playlist[self.counter])
             else:
                 self.playing = False
-        else:
-            if self.playing:
-                self.timer += seconds
 
     def shuffle(self):
         random.shuffle(self.playlist)
@@ -430,8 +425,8 @@ class MusicPlayerWithScreen(MusicPlayer):
             addstr(self.screen, 0, 0, info_string(song_data.val[song_id], self.timer))
             self.screen.refresh()
 
-    def query(self, seconds):
-        super().query(seconds)
+    def query(self):
+        super().query()
         self.disp()
 
     def play(self, file: Path):
