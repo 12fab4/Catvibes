@@ -9,7 +9,6 @@ SRCPATH="src/$PROJECT"
 COLLECTALL="ytmusicapi"
 # additional data to include
 ADDDATA="$SRCPATH/config:$PROJECT"
-WIN_ADDDATA="plugins:$PROJECT/plugins"
 # hidden imports (sometimes pyinstaller does not work without those)
 HIDDENIMPORT="yt_dlp.utils._deprecated"
 # python modules used
@@ -127,19 +126,11 @@ fi
 
 
 if [[ "$BUILDWIN" == "true" ]]; then
-    info starting Windows build
-
-    # if [[ "$(dir | grep ffmpeg)" == "" ]]; then
-    #     info getting ffplay executable
-    #     run curl https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-2024-03-20-git-e04c638f5f-full_build.7z > ffmpeg.7z
-    #     run 7z e ffmpeg.7z -offmpeg
-    #     rm ffmpeg.7z
-    #     info ffplay at ffmpeg/ffplay.exe
-
-    # fi
+    info starting Windows buildi
     # pyinstaller command for Windows
-    PYINSTALLER_WIN="pyinstaller --name=$PROJECT $COLLECTALL $ADDDATA $WIN_ADDDATA $HIDDENIMPORT $WINIMPORT $ARGS $SRCPATH/__main__.py"
+    PYINSTALLER_WIN="pyinstaller --name=$PROJECT $COLLECTALL $ADDDATA $HIDDENIMPORT $WINIMPORT $ARGS $SRCPATH/__main__.py"
 
+    # for the following wine command I used Winetricks (~/Wine/ is a symlink to ~/.local/share/wineprefixes) and installed python (3.11.8) and vlc (3.20) via their official websites
     WINEPREFIX=~/Wine/Development WINEDEBUG=fixme-all run wine cmd /c cd $PWD \& $PIPINSTALL \& $PYINSTALLER_WIN || error 1 "error in Windows build. Is a correct Wineprefix setup at HOME/Wine/Development?"
 
     info finished Windows build
