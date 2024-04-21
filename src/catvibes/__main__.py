@@ -6,9 +6,10 @@ from pathlib import Path
 from shutil import copy2, rmtree
 
 try:
-    from catvibes import catvibes, qt_gui, catvibes_lib as lib
-except ImportError:
-    import catvibes
+    from catvibes import qt_gui, term_ui
+    from catvibes import catvibes_lib as lib
+except (ImportError, ModuleNotFoundError):
+    import term_ui
     import qt_gui
     import catvibes_lib as lib
 
@@ -120,7 +121,7 @@ def main():
     if "--gui" in params or "-g" in params:
         qt_gui.main(start)
     else:
-        catvibes.main(start)
+        term_ui.main(start)
 
 
 if __name__ == "__main__":

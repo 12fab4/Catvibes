@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
 )
 
 from PyQt6.QtGui import (
+    QAction,
     QColor,
     QPalette,
     QPixmap,
@@ -40,10 +41,13 @@ from pathlib import Path
 from functools import partial
 import eyed3
 import requests
+import logging
+
+from catvibes.catvibes_lib import hash_container
 
 try:
     from catvibes import catvibes_lib as lib
-except ImportError:
+except ModuleNotFoundError:
     import catvibes_lib as lib
 
 playlists = lib.playlists
@@ -84,7 +88,8 @@ class MainWindow(QMainWindow):
 
         playlists_widget.addTab(SongsWidget(), "Songs")
         for name, playlist in playlists.val.items():
-            playlists_widget.addTab(PlaylistWidget(playlist), name)
+            widget = PlaylistWidget(playlist)
+            playlists_widget.addTab(widget, name)
         playlists_widget.addTab(new_playlist, "+")
 
         layout.addWidget(playlists_widget, 0, 0)
@@ -139,7 +144,8 @@ class thread(QThread):
 
     def __init__(self, parent, func):
         super().__init__()
-        self.setParent(parent)
+        if parent is not None:
+            self.setParent(parent)
         self.func = func
 
     def run(self):
@@ -178,7 +184,8 @@ class PlaylistWidget(QWidget):
         self.playlistarea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.playlistbox = QWidget()
         self.playlistlayout = QVBoxLayout()
-        self.refresh()
+        self.playlisthash = 0
+        # self.refresh()
         self.playlistbox.setLayout(self.playlistlayout)
         self.playlistarea.setWidget(self.playlistbox)
         self.playlistarea.setWidgetResizable(True)
@@ -205,7 +212,7 @@ class PlaylistWidget(QWidget):
             r = dialog.exec()
             if r >= 100:
                 song_info = song_infos[r - 100]
-                th = thread(self, lambda: lib.download_song(song_info))
+                th = thread(self, lambda: lib.download_song(song_info, wait=True))
                 th.ended.connect(finish)
                 th.start()
 
@@ -223,12 +230,14 @@ class PlaylistWidget(QWidget):
         )
 
     def refresh(self):
-        clear_layout(self.playlistlayout)
-        for i, val in enumerate(self.playlist.val):
-            try:
-                self.playlistlayout.addWidget(self.nth_songwidget(i))
-            except (IndexError):
-                pass
+        if self.playlisthash != lib.hash_container(self.playlist.val):
+            self.playlisthash = lib.hash_container(self.playlist.val)
+            clear_layout(self.playlistlayout)
+            for i, val in enumerate(self.playlist.val):
+                try:
+                    self.playlistlayout.addWidget(self.nth_songwidget(i))
+                except (IndexError):
+                    pass
 
     def nth_songwidget(self, n: int):
         wid = SongWidget(self.playlist.val[n])
@@ -236,8 +245,17 @@ class PlaylistWidget(QWidget):
         menu = QMenu()
         append: QAction = menu.addAction("append")
         remove: QAction = menu.addAction("remove")
+        insert: QAction = menu.addAction("play next")
         append.triggered.connect(partial(player.add, lib.song_file(self.playlist.val[n])))
         remove.triggered.connect(partial(self.remove_song, n))
+
+        def insert_song(n):
+            song: Path = lib.song_file(self.playlist.val[n])
+            if player.playlist != []:
+                player.playlist.insert(1, song)
+            else:
+                player.play(song)
+        insert.triggered.connect(partial(insert_song, n))
 
         def contextmenu() -> None:
             menu.popup(QCursor.pos())
@@ -297,8 +315,10 @@ class SongsWidget(PlaylistWidget):
         super().remove_song(n)
 
     def refresh(self):
-        self.playlist = lib.Pointer(list(song_data.val.keys()))
-        super().refresh()
+        if self.playlisthash != hash(song_data):
+            self.playlist = lib.Pointer(list(song_data.val.keys()))
+            super().refresh()
+            self.playlisthash = hash(song_data)
 
 
 class PlayerWidget(QWidget, lib.MusicPlayer):
@@ -397,7 +417,7 @@ def main(func=lambda: None):
     """initialises the GUI. func is a callable and executed right before the mainloop"""
     app = QApplication(sys.argv)
     theme = lib.config.val["theme"]
-    print(theme, QStyleFactory.keys())
+    logging.getLogger().info(f"theme:{theme}, available={QStyleFactory.keys()}")
     if theme in QStyleFactory.keys():
         app.setStyle(theme)
     window = MainWindow()

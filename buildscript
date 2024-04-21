@@ -6,16 +6,14 @@ PROJECT="catvibes"
 # the path to the sourcefiles from the project root (where the script should be run)
 SRCPATH="src/$PROJECT"
 # pyinstaller python libs to collect fully (e.g. ytmusicapi)
-COLLECTALL="--collect-all ytmusicapi --collect-all yt_dlp"
+COLLECTALL="ytmusicapi"
 # additional data to include
-ADDDATA="--add-data $SRCPATH/config:$PROJECT"
+ADDDATA="$SRCPATH/config:$PROJECT"
+WIN_ADDDATA="plugins:$PROJECT/plugins"
 # hidden imports (sometimes pyinstaller does not work without those)
-HIDDENIMPORT="--hidden-import yt_dlp.utils._deprecated --hidden-import yt_dlp.compat._legacy"
+HIDDENIMPORT="yt_dlp.utils._deprecated"
 # python modules used
 PYTHONMODULES="pyqt6 yt-dlp ytmusicapi eyeD3 python-vlc"
-# additional binaries for windows
-# --add-binary for ffmpeg
-WINIMPORT="--add-binary ffmpeg/ffplay.exe:. --add-binary ffmpeg/ffmpeg.exe:. --add-binary ffmpeg/ffprobe.exe:. --add-binary VLClibs/libvlc.dll:. --add-binary VLClibs/libvlccore.dll:."
 # bonus pyinstaller args
 ARGS="--onefile --log-level WARN"
 
@@ -54,7 +52,40 @@ run() {
     $COMMAND "$@"
 }
 
+# appends a prefix to all members of a list
+prefix(){
+    PREFIX=$1
+    shift
+    NEWLINE=""
+    for arg in "$@"
+    do
+        NEWLINE="$NEWLINE $PREFIX $arg"
+    done
+    echo "$NEWLINE"
+}
 
+BUILDWIN=true
+BUILDLINUX=true
+
+if [[ ! $(echo "$@" | grep -e "win") == "" ]]; then
+    BUILDLINUX=false
+fi
+if [[ ! $(echo "$@" | grep -e "linux") == "" ]]; then
+    BUILDWIN=false
+fi
+
+COLLECTALL=$(prefix --collect-all $COLLECTALL)
+ADDDATA=$(prefix --add-data $ADDDATA)
+WIN_ADDDATA=$(prefix --add-data $WIN_ADDDATA)
+HIDDENIMPORT=$(prefix --hidden-import $HIDDENIMPORT)
+
+for file in $(find Windows_binaries/*)
+do
+    WINIMPORT="$WINIMPORT $file:."
+done
+
+# additional binaries for windows
+WINIMPORT=$(prefix --add-binary $WINIMPORT)
 
 clearup
 
@@ -64,52 +95,76 @@ info "Dependencies: $PYTHONMODULES"
 
 info moving previous executables to executables_old folder
 run mv executables executables_old 
+mkdir executables &>/dev/null
 
-run rm -rf build_env
-run virtualenv -q build_env
+if [[ "$BUILDLINUX" == "true" ]]; then
+    run virtualenv -q build_env
 
-# command to pip all the dependencies
-PIPINSTALL="pip install --upgrade -q pyinstaller pyinstaller-hooks-contrib $PYTHONMODULES"
-# the pyinstaller command for Linux
-PYINSTALLER="pyinstaller --name=$PROJECT $COLLECTALL $ADDDATA $HIDDENIMPORT $ARGS $SRCPATH/__main__.py"
-info starting Linux build
+    # command to pip all the dependencies
+    PIPINSTALL="pip install --upgrade -q pyinstaller pyinstaller-hooks-contrib $PYTHONMODULES"
+    # the pyinstaller command for Linux
+    PYINSTALLER="pyinstaller --name=$PROJECT $COLLECTALL $ADDDATA $HIDDENIMPORT $ARGS $SRCPATH/__main__.py"
+    info starting Linux build
 
-source build_env/bin/activate
-info installing python modules
-run $PIPINSTALL
-info running pyinstaller
-run $PYINSTALLER || error 1 "error in Linux build"
-deactivate
+    source build_env/bin/activate
+    info installing python modules
+    run $PIPINSTALL
+    info running pyinstaller
+    run $PYINSTALLER || error 1 "error in Linux build"
+    deactivate
 
-info finished Linux build
+    run rm -rf build_env
 
-info saving executable to executables dir
-mkdir executables
-run mv dist/$PROJECT executables
+    info finished Linux build
 
-clearup
+    info saving executable to executables dir
+    run mv dist/$PROJECT executables
 
-info starting Windows build
-
-if [[ "$(dir | grep ffmpeg)" == "" ]]; then
-    info getting ffplay executable
-    run curl https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-2024-03-20-git-e04c638f5f-full_build.7z > ffmpeg.7z
-    run 7z e ffmpeg.7z -offmpeg
-    rm ffmpeg.7z
-    info ffplay at ffmpeg/ffplay.exe
-
+    clearup
+else
+    info skipping linux build
 fi
-# pyinstaller command for Windows
-PYINSTALLER_WIN="pyinstaller --name=$PROJECT $COLLECTALL $ADDDATA $HIDDENIMPORT $WINIMPORT $ARGS $SRCPATH/__main__.py"
 
-WINEPREFIX=~/Wine/Development WINEDEBUG=fixme-all run wine cmd /c cd $PWD \& $PIPINSTALL \& $PYINSTALLER_WIN || error 1 "error in Windows build. Is a correct Wineprefix setup at HOME/Wine/Development?"
 
-info finished Windows build
+if [[ "$BUILDWIN" == "true" ]]; then
+    info starting Windows build
 
-info saving executable to executables dir
-run mv dist/$PROJECT.exe executables
+    # if [[ "$(dir | grep ffmpeg)" == "" ]]; then
+    #     info getting ffplay executable
+    #     run curl https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-2024-03-20-git-e04c638f5f-full_build.7z > ffmpeg.7z
+    #     run 7z e ffmpeg.7z -offmpeg
+    #     rm ffmpeg.7z
+    #     info ffplay at ffmpeg/ffplay.exe
+
+    # fi
+    # pyinstaller command for Windows
+    PYINSTALLER_WIN="pyinstaller --name=$PROJECT $COLLECTALL $ADDDATA $WIN_ADDDATA $HIDDENIMPORT $WINIMPORT $ARGS $SRCPATH/__main__.py"
+
+    WINEPREFIX=~/Wine/Development WINEDEBUG=fixme-all run wine cmd /c cd $PWD \& $PIPINSTALL \& $PYINSTALLER_WIN || error 1 "error in Windows build. Is a correct Wineprefix setup at HOME/Wine/Development?"
+
+    info finished Windows build
+
+    info saving executable to executables dir
+    if [[ ! "" == "$(echo $PYINSTALLER_WIN | grep -e "--onefile")" ]]; then
+        run mv dist/$PROJECT.exe executables
+    else
+        run mv dist/$PROJECT executables/win_$PROJECT
+    fi
+
+    clearup
+
+else
+    info skipping windows build
+fi
+
+if  [[ $BUILDLINUX == "false" ]]; then
+    info using old linux executable
+    run mv executables_old/$PROJECT executables
+fi
+if  [[ $BUILDWIN == "false" ]]; then
+    info using old windows executable
+    run mv executables_old/$PROJECT.exe executables
+fi
 
 info deleting old executables as nothing failed
 run rm -rf executables_old
-
-clearup

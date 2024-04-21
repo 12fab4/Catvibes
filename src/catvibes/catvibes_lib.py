@@ -9,9 +9,8 @@ import shutil
 import time
 import logging
 from pathlib import Path
-import vlc
 import threading as th
-from typing import Callable
+from typing import Callable, Iterable
 
 import yt_dlp
 import ytmusicapi
@@ -22,12 +21,37 @@ song_dir: Path
 data_dir: Path
 playlist_dir: Path
 
+try:
+    import custom_vlc as vlc
+except ModuleNotFoundError:
+    from catvibes import custom_vlc as vlc
+
+
+# debug for VLC
+# i = vlc.Instance("--verbose 3")
+
+def hash_container(container: Iterable) -> int:
+    """hashes a typically unhashable Object (like list or dict by adding all hashes of items)"""
+    hashval = 0
+    for i in container:
+        try:
+            hashval += hash(i) / 1000
+        except TypeError:
+            hashval += hash_container(i)
+    return int(hashval)
+
 
 class Pointer:
-    """a bad implementation of pointers. use .val to retrieve or set value"""
+    """a VERY bad implementation of pointers. use .val to retrieve or set value"""
 
     def __init__(self, val):
         self.val = val
+
+    def __hash__(self) -> int:
+        try:
+            return hash(self.val)
+        except:
+            return hash_container(self.val)
 
 
 playlists = Pointer({})
@@ -37,11 +61,10 @@ config = Pointer({})
 
 def init():
     """loads files and config"""
+    # global was never intended to be used this way... oh pythongod forgive my sins
     global playlists, song_data, data, main_dir, config, song_dir, data_dir, playlist_dir, music_player, config_location, yt
-    # fix for pyinstaller & python-vlc
-    if sys.platform.startswith("linux"):
-        os.environ["VLC_PLUGIN_PATH"] = "/usr/lib64/vlc/plugins"
     workdir = Path(__file__).parent
+
     default_config_location = workdir.joinpath("config")
     config_base = os.environ.get('APPDATA') or \
         os.environ.get('XDG_CONFIG_HOME') or \
@@ -62,11 +85,32 @@ def init():
     os.makedirs(data_dir, exist_ok=True)
     playlist_dir = main_dir.joinpath("playlists")
     os.makedirs(playlist_dir, exist_ok=True)
-    data.create_if_not_exsisting(main_dir.joinpath("catvibes.log"), "")
-    logging.basicConfig(filename=str(main_dir.joinpath("catvibes.log")), filemode="w", encoding="utf-8", format="%(asctime)s: %(message)s", datefmt="%m/%d/%y %H:%M:%S", level=logging.INFO)
+    logfile = main_dir.joinpath("catvibes.log")
+    if Path.is_file(logfile):
+        shutil.copy2(logfile, main_dir.joinpath("prev_log.log"))
+
+    data.create_if_not_exsisting(logfile, "")
+    logging.basicConfig(filename=str(logfile), filemode="w", encoding="utf-8", format="%(asctime)s: %(message)s", datefmt="%m/%d/%y %H:%M:%S", level=logging.INFO)
     # loads the song db
     data.load(data_dir.joinpath("data"), song_data, {})
 
+    # fix for pyinstaller & python-vlc
+    if sys.platform.startswith("linux"):
+        os.environ["VLC_PLUGIN_PATH"] = "/usr/lib64/vlc/plugins"
+    if sys.platform.startswith("win"):
+        print("windows VLC fix")
+        # temporary disabled
+        if Path.is_dir(workdir.joinpath("plugins")) and False:
+            os.environ["VLC_PLUGIN_PATH"] = str(workdir.joinpath("plugins"))
+        else:
+            ffmpeg_path = Path(__file__).parent
+            print(os.listdir(ffmpeg_path))
+            os.environ["PATH"] += os.pathsep + os.path.dirname(ffmpeg_path)
+            print(os.environ["PATH"])
+            os.environ["VLC_PLUGIN_PATH"] = "C:\\Program Files\\VideoLAN\\VLC\\plugins"
+            print("changed VLC_PLUGIN_PATH env")
+    print(os.environ["VLC_PLUGIN_PATH"])
+    
     os.makedirs(playlist_dir, exist_ok=True)
     with os.scandir(playlist_dir) as files:
         for f in files:
@@ -84,19 +128,19 @@ class YTInterface:
         self.yt = ytmusicapi.YTMusic()
         self.connect()
 
-    def search(self, *args, **kwargs):
+    def search(self, *args, **kwargs) -> list[dict]:
         if self.online:
             return self.yt.search(*args, **kwargs)
         else:
             raise self.offline_error
 
-    def get_search_suggestions(self, *args, **kwargs):
+    def get_search_suggestions(self, *args, **kwargs) -> list[str]:
         if self.online:
             return self.yt.get_search_suggestions(*args, **kwargs)
         else:
             raise self.offline_error
 
-    def get_song(self, song_id: str):
+    def get_song(self, song_id: str) -> dict:
         if self.online:
             return self.yt.get_song(song_id)
         else:
@@ -300,8 +344,8 @@ class Datamanager:
 
     def __init__(self):
         # files[i] and vars[i] belong together
-        self.files = []
-        self.vars = []  # contains pointers
+        self.files: list[Path] = []
+        self.vars: list[Pointer] = []
 
     def load(self, file: Path, to: Pointer, default=None):
         """loads and links a file to a variable. if the file is nonexistent load default and create file"""
@@ -316,8 +360,9 @@ class Datamanager:
     @staticmethod
     def save(var: Pointer, file=Path):
         """saves a variable to a file"""
-        with open(file, "w") as f:
-            f.write(json.dumps(var.val, indent=4))
+        if var.val is not None:
+            with open(file, "w") as f:
+                f.write(json.dumps(var.val, indent=4))
 
     def save_all(self):
         """saves all var:file associations"""
@@ -325,6 +370,7 @@ class Datamanager:
             var_pointer = self.vars[i]
             file = self.files[i]
             self.save(var_pointer, file)
+        logging.info("saved all files")
 
     @staticmethod
     def create_if_not_exsisting(file, content):
@@ -342,7 +388,7 @@ class MusicPlayer:
     def __init__(self) -> None:
         self.playlist: list = []
         self.counter: int = -1
-        self.proc = vlc.MediaPlayer()
+        self.proc: MediaPlayer = vlc.MediaPlayer()
         self.playing: bool = False
 
     @property
@@ -556,6 +602,10 @@ def download_song(song_info: dict, wait=False, on_finished=lambda: None) -> None
                                            'when': 'playlist'}],
                        'retries': 10,
                        'writethumbnail': True}
+
+        if sys.platform.startswith("win"):
+            # yt_dlp_opts["ffmpeg_location"] = Path(__file__).parent
+            print("windows fix")
 
         with yt_dlp.YoutubeDL(yt_dlp_opts) as ydl:
             ydl.download([f"https://www.youtube.com/watch?v={song_id}"])
