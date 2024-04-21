@@ -14,6 +14,7 @@ from typing import Callable, Iterable
 
 import yt_dlp
 import ytmusicapi
+import vlc
 
 # placeholders for directories
 main_dir: Path
@@ -21,14 +22,6 @@ song_dir: Path
 data_dir: Path
 playlist_dir: Path
 
-try:
-    import custom_vlc as vlc
-except ModuleNotFoundError:
-    from catvibes import custom_vlc as vlc
-
-
-# debug for VLC
-# i = vlc.Instance("--verbose 3")
 
 def hash_container(container: Iterable) -> int:
     """hashes a typically unhashable Object (like list or dict by adding all hashes of items)"""
@@ -98,19 +91,10 @@ def init():
     if sys.platform.startswith("linux"):
         os.environ["VLC_PLUGIN_PATH"] = "/usr/lib64/vlc/plugins"
     if sys.platform.startswith("win"):
-        print("windows VLC fix")
-        # temporary disabled
-        if Path.is_dir(workdir.joinpath("plugins")) and False:
-            os.environ["VLC_PLUGIN_PATH"] = str(workdir.joinpath("plugins"))
-        else:
-            ffmpeg_path = Path(__file__).parent
-            print(os.listdir(ffmpeg_path))
-            os.environ["PATH"] += os.pathsep + os.path.dirname(ffmpeg_path)
-            print(os.environ["PATH"])
-            os.environ["VLC_PLUGIN_PATH"] = "C:\\Program Files\\VideoLAN\\VLC\\plugins"
-            print("changed VLC_PLUGIN_PATH env")
-    print(os.environ["VLC_PLUGIN_PATH"])
-    
+        ffmpeg_path = Path(__file__).parent
+        os.environ["PATH"] += os.pathsep + os.path.dirname(ffmpeg_path)
+        os.environ["VLC_PLUGIN_PATH"] = "C:\\Program Files\\VideoLAN\\VLC\\plugins"
+
     os.makedirs(playlist_dir, exist_ok=True)
     with os.scandir(playlist_dir) as files:
         for f in files:
@@ -602,10 +586,6 @@ def download_song(song_info: dict, wait=False, on_finished=lambda: None) -> None
                                            'when': 'playlist'}],
                        'retries': 10,
                        'writethumbnail': True}
-
-        if sys.platform.startswith("win"):
-            # yt_dlp_opts["ffmpeg_location"] = Path(__file__).parent
-            print("windows fix")
 
         with yt_dlp.YoutubeDL(yt_dlp_opts) as ydl:
             ydl.download([f"https://www.youtube.com/watch?v={song_id}"])
