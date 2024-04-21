@@ -78,10 +78,16 @@ ADDDATA=$(prefix --add-data $ADDDATA)
 WIN_ADDDATA=$(prefix --add-data $WIN_ADDDATA)
 HIDDENIMPORT=$(prefix --hidden-import $HIDDENIMPORT)
 
-for file in $(find Windows_binaries/*)
+cd Windows_binaries
+for FILE in $(find ./*.tar.xz)
 do
-    WINIMPORT="$WINIMPORT $file:."
+    # binaries are compressed via xz to reduce repo size
+    tar -xJf "$FILE"
+    BINARY=${FILE#.tar.xz}
+    WINIMPORT="$WINIMPORT $BINARY:."
 done
+
+cd ..
 
 # additional binaries for windows
 WINIMPORT=$(prefix --add-binary $WINIMPORT)
