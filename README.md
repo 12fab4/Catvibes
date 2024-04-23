@@ -11,18 +11,26 @@ A simple music player offering not only a terminal based frontend but also a Qt 
 
 # Installation
 
+there is a package available on PyPI but just downloading an executable from the releases is recommended for now
+```
     pip install Catvibes
+```
 
 ## Requirements:
+
+in order to play music an existing installation of the [VLC media player](https://www.videolan.org/vlc/) is required.
+
+if the executable is used the following dependencies can be skipped
+
 python and the following packages (will be installed as dependencies with pip):
 
     pip install ytmusicapi eyed3 yt-dlp PyQt6
 
-it also requires ffplay
+it also requires ffmpeg
 
 On linux install ffmpeg which is available on debian-based and arch-based distros and probably already installed
 
-On Windows follow this tutorial: https://phoenixnap.com/kb/ffmpeg-windows
+On Windows follow this [tutorial](https://phoenixnap.com/kb/ffmpeg-windows)
 
 
 # Controls
@@ -47,3 +55,8 @@ n: next song
 b: previous song
 
 l: create a new playlist
+
+# Building the executables
+I use pyinstaller to create the existing executables and the entire buildprocess is automated in the [buildscript](./buildscript)
+
+the buildscript is written in bash (the default shell on nearly all Linux distributions) and also available on Windows via WSL. In order to produce the Windowsexecutables I use [Wine](https://www.winehq.org/) with a default 64-bit Wineprefix which has python and the VLC media player installed (the creation of this prefix has to be done manually as the script wont do it for you). Due to the use of Wine I would not recommend trying to build the executables on Windows (emulating a linux environment emulating a Windows environment sounds pretty slow)
