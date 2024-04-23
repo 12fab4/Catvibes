@@ -40,7 +40,7 @@ error(){
 clearup(){
     rm -rf dist
     rm -rf build
-    rm $PROJECT.spec
+    rm $PROJECT.spec &>/dev/null
 }
 
 # runs a command and also prints it
@@ -78,16 +78,16 @@ ADDDATA=$(prefix --add-data $ADDDATA)
 WIN_ADDDATA=$(prefix --add-data $WIN_ADDDATA)
 HIDDENIMPORT=$(prefix --hidden-import $HIDDENIMPORT)
 
-cd Windows_binaries
-for FILE in $(find ./*.tar.xz)
+info decompressing windows binaries
+for FILE in $(find Windows_binaries/*.tar.xz)
 do
     # binaries are compressed via xz to reduce repo size
-    tar -xJf "$FILE"
+    tar -xJf "$FILE" -C Windows_binaries
     BINARY=${FILE#.tar.xz}
     WINIMPORT="$WINIMPORT $BINARY:."
 done
+info done
 
-cd ..
 
 # additional binaries for windows
 WINIMPORT=$(prefix --add-binary $WINIMPORT)
