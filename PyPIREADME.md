@@ -1,3 +1,5 @@
+The PyPI version is currently outdated. Please go to the github repo to download more recent versions.
+
 # Catvibes
 A simple music player offering not only a terminal based frontend but also a Qt based one.
 

@@ -389,8 +389,9 @@ class MusicPlayer:
         self.proc.pause()
 
     def continu(self):
-        self.playing = True
-        self.proc.play()
+        if self.playlist != []:
+            self.playing = True
+            self.proc.play()
 
     def toggle(self):
         if self.playing:
@@ -634,20 +635,20 @@ def format_time(seconds: int) -> str:
 
 def string_replace(string: str, song_info) -> str:
     """replaces varoius KEYs in a string like TITLE with the info in the song_info dict"""
-    if "title" in song_info:
+    try:
         string = string.replace("TITLE", song_info["title"])
-    else:
+    except:
         string = string.replace("TITLE", "")
 
-    if "artists" in song_info:
+    try:
         string = string.replace("ARTIST", song_info["artists"][0]["name"])
-    else:
-        string = string.replace("TITLE", "")
+    except:
+        string = string.replace("ARTIST", "")
 
-    if "duration" in song_info:
+    try:
         string = string.replace("LENGHT", song_info["duration"])
-    else:
-        string = string.replace("TITLE", "")
+    except:
+        string = string.replace("LENGHT", "")
     return string
 
 

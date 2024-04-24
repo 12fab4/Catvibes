@@ -10,3 +10,4 @@ catvibes.spec
 build/*
 executables/*
 ffmpeg/*
+Windows_binaries/*.exe

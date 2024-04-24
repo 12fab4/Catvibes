@@ -1,12 +1,10 @@
 # Catvibes
 A simple music player offering not only a terminal based frontend but also a Qt based one.
 
-# Qt look (with kvantum theme)
-![](./images/qtui.png)
-# Qt look (with Windows theme)
-![](./images/windows.png)
-# terminal look
-![](./images/terminalui.png)
+# GUI
+![](./images/GUI.png)
+# CLI
+![](./images/CLI.png)
 
 
 # Installation
