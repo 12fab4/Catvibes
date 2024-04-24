@@ -36,6 +36,7 @@ def main():
             "\n"
             "when launched with no Options a curses based UI will be used\n"
         )
+        return
 
     if "--reset" in params:
         if input("do you really want to delete ALL data (type 'yes'): ") == "yes":
@@ -67,6 +68,7 @@ def main():
             if song not in all_songs:
                 print(f"removing {lib.song_data.val[song]['title']} from database")
                 del lib.song_data.val[song]
+        lib.data.save_all()
         return
 
     if "--import" in params:
