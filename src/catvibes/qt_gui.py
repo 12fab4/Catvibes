@@ -43,8 +43,6 @@ import eyed3
 import requests
 import logging
 
-from catvibes.catvibes_lib import hash_container
-
 try:
     from catvibes import catvibes_lib as lib
 except ModuleNotFoundError:
@@ -205,7 +203,8 @@ class PlaylistWidget(QWidget):
         if lib.yt.online:
             def finish():
                 self.playlist.val.append(song_info["videoId"])
-                self.refresh()
+                self.playlistlayout.addWidget(self.nth_songwidget(len(self.playlist.val) - 1))
+                self.playlisthash = lib.hash_container(self.playlist.val)
 
             song_infos = lib.yt.search(self.search.text(), self.searchtype.currentText(), limit=1)[:lib.config.val["results"]]
             dialog = ChooseSongDialog(song_infos)
@@ -217,9 +216,10 @@ class PlaylistWidget(QWidget):
                 th.start()
 
     def shuffle(self):
-        if player.playlist == []:
+        files = [lib.song_file(song) for song in self.playlist.val]
+        if set(player.playlist) != set(files):
             player.add_list(
-                [lib.song_file(song) for song in self.playlist.val]
+                files
             )
         player.shuffle()
 
