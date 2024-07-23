@@ -151,6 +151,13 @@ class YTInterface:
             return self.yt.get_song(song_id)
         else:
             raise self.offline_error
+    
+    def get_song_related(self, song_id: str) -> list[dict[str, Any]]:
+        """returns suggestions for next songs after a provided song"""
+        if self.online:
+            return self.yt.get_song_related(song_id)
+        else:
+            raise self.offline_error
 
     def connect(self):
         """checks connectivity"""
