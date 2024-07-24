@@ -17,7 +17,8 @@ from PyQt6.QtWidgets import (
     QStyleFactory,
     QStyle,
     QDialog,
-    QComboBox
+    QComboBox,
+    QSizePolicy
 )
 
 from PyQt6.QtGui import (
@@ -37,7 +38,8 @@ from PyQt6.QtCore import (
     Qt,
     QSize,
     QThread,
-    pyqtSignal
+    pyqtSignal,
+    QPropertyAnimation
 )
 
 
@@ -79,7 +81,7 @@ class MainWindow(QMainWindow):
 
         def on_tab_change():  # called if the user switches tabs
             if playlists_widget.currentWidget() != new_playlist:  # on "normal" tabs
-                playlists_widget.currentWidget().refresh()  # just update the widget associated with the tab
+                playlists_widget.currentWidget().refresh()  # just update the widget associated with the tab # type: ignore
             else:  # if the + button (to add a playlist) is pressed
                 # Display a Dialog with a simple textinput
                 dialog = NewPlaylistDialog()
@@ -153,7 +155,7 @@ class SongWidget(QWidget):
 
         # there is also a secondary Button for additional purposes
         self.MenuButton = QPushButton()
-        self.MenuButton.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_CommandLink))  # with just an Icon
+        self.MenuButton.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_CommandLink))  # with just an Icon # type: ignore
         self.MenuButton.setFixedSize(30, 80)
 
         # adds the two Buttons to the actual Widget
@@ -295,9 +297,9 @@ class PlaylistWidget(QWidget):
         wid = SongWidget(self.playlist.val[n])  # generates the Songwidget (without actions)
         wid.Button.clicked.connect(partial(self.play_from_song, n))  # clicking on the main Button starts playing the playlist from that point
         menu = QMenu()  # we create a popup menu
-        append: QAction = menu.addAction("append")  # with these actions
-        remove: QAction = menu.addAction("remove")
-        insert: QAction = menu.addAction("play next")
+        append: QAction = menu.addAction("append")  # with these actions # type: ignore
+        remove: QAction = menu.addAction("remove")  # type: ignore
+        insert: QAction = menu.addAction("play next")  # type: ignore
         append.triggered.connect(partial(player.add, lib.song_file(self.playlist.val[n])))  # append adds a song to the queue
         remove.triggered.connect(partial(self.remove_song, n))  # remove deletes the song from the playlist
 
@@ -355,12 +357,13 @@ class ChooseSongDialog(QDialog):
 
 class NewPlaylistDialog(QDialog):
     """ a simple dialog that asks for the name of a new playlist"""
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Enter Name")
-        layout = QVBoxLayout() # has a very simple layout
-        self.text = QLineEdit() # containing only an textinput
-        self.text.returnPressed.connect(partial(self.done, 100)) # if pressing enter the dialog closes and returns the sucess code 100
+        layout = QVBoxLayout()  # has a very simple layout
+        self.text = QLineEdit()  # containing only an textinput
+        self.text.returnPressed.connect(partial(self.done, 100))  # if pressing enter the dialog closes and returns the sucess code 100
         layout.addWidget(self.text)
         self.setLayout(layout)
         self.setFixedSize(300, 60)
@@ -368,13 +371,14 @@ class NewPlaylistDialog(QDialog):
 
 class SongsWidget(PlaylistWidget):
     """a widget to show all songs"""
+
     def __init__(self) -> None:
-        playlist = lib.Pointer(list(song_data.val.keys())) # the playlist for this widget is just all songs in the db
+        playlist = lib.Pointer(list(song_data.val.keys()))  # the playlist for this widget is just all songs in the db
         super().__init__(playlist)
 
         # one cannot add a song only to the db -> remove junk only made for the playlist
-        self.layout().removeWidget(self.search) 
-        self.layout().removeWidget(self.searchtype)
+        self.layout().removeWidget(self.search)  # type: ignore
+        self.layout().removeWidget(self.searchtype)  # type: ignore
         self.search.setParent(None)
         self.searchtype.setParent(None)
 
@@ -385,41 +389,49 @@ class SongsWidget(PlaylistWidget):
 
     def refresh(self):
         # adjusted to accout for the playlist being generated as all songs in the db
-        if self.playlisthash != hash(song_data): # check if playlist is up to date
-            self.playlist = lib.Pointer(list(song_data.val.keys())) # if not gets the new playlist
-            self.playlisthash = 0 # ensures that the refresh regenerates the layout
+        if self.playlisthash != hash(song_data):  # check if playlist is up to date
+            self.playlist = lib.Pointer(list(song_data.val.keys()))  # if not gets the new playlist
+            self.playlisthash = 0  # ensures that the refresh regenerates the layout
             super().refresh()
-            self.playlisthash = hash(song_data) # remember the state of the playlist
+            self.playlisthash = hash(song_data)  # remember the state of the playlist
 
 
 class PlayerWidget(QWidget, lib.MusicPlayer):
     """a Widget not only providing graphicla information but also acting as an interface for controlling playback"""
+
     def __init__(self):
-        QWidget.__init__(self) # ensures working as a widget
-        lib.MusicPlayer.__init__(self) # ensures working as an Interface
+        QWidget.__init__(self)  # ensures working as a widget
+        lib.MusicPlayer.__init__(self)  # ensures working as an Interface
 
         layout = QGridLayout()
-        layout.setRowStretch(0, 3) # the first rom is three times higher than others
+        layout.setRowStretch(0, 3)  # the first rom is three times higher than others
 
-        # creates an Icon meant to display the cover of the current playing song 
+        # creates an Icon meant to display the cover of the current playing song
         self.Icon = QLabel()
+        # adjusts the songcover on resizing
+
+        def onResize(a0):
+            if self.song:
+                self.Icon.setPixmap(song_cover_info(self.song, self.get_icon_scale() - 20)[0])
+        self.resizeEvent = onResize
+
         layout.addWidget(self.Icon, 0, 0, 1, 3, Qt.AlignmentFlag.AlignCenter)
 
         #  a Button with a skip icon that skips the current song
         self.Button_f = QPushButton("")
-        self.Button_f.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MediaSkipForward))
+        self.Button_f.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MediaSkipForward))  # type: ignore
         self.Button_f.clicked.connect(self.next)
         self.Button_f.setFixedWidth(80)
 
         # a button with a previous icon that plays the previous song
         self.Button_b = QPushButton("")
-        self.Button_b.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MediaSkipBackward))
+        self.Button_b.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MediaSkipBackward))  # type: ignore
         self.Button_b.clicked.connect(self.prev)
         self.Button_b.setFixedWidth(80)
 
-        # a Button with an adjusting icon that reflects and toggles the play/pause state 
+        # a Button with an adjusting icon that reflects and toggles the play/pause state
         self.Button_play = QPushButton("")
-        self.Button_play.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        self.Button_play.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))  # type: ignore
         self.Button_play.clicked.connect(self.toggle)
 
         # a progress bar displaying the song progress
@@ -439,45 +451,47 @@ class PlayerWidget(QWidget, lib.MusicPlayer):
         self.setAutoFillBackground(True)
         self.setLayout(layout)
 
+        self.setMinimumWidth(310)
+
     def toggle(self):
         # adjusted to also toggle the Icon of the play/pause button
         super().toggle()
         if self.playing:
-            self.Button_play.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause))
+            self.Button_play.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause))  # type: ignore
         else:
-            self.Button_play.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+            self.Button_play.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))  # type: ignore
 
     def get_icon_scale(self) -> int:
         """returns an optimal scale for the songcover"""
-        size = self.parent().size()
+        size = self.parent().size()  # type: ignore
         h, w = size.height(), size.width()
-        return min(h - 150, w - PlaylistWidget.minimumwidth) # either the Windowheight - space for title & buttons or Windowwidth - space for the Playlistwidgets
+        return min(h - 150, w - PlaylistWidget.minimumwidth)  # either the Windowheight - space for title & buttons or Windowwidth - space for the Playlistwidgets
 
     def query(self):
         # adjusted to also update the progressbar
+        self.setMinimumWidth(self.get_icon_scale() + 20)
         if self.playlist != []:
             super().query()
             song: str | None = self.song
             if song:
-                # self.Icon.setPixmap(song_cover_info(song, self.get_icon_scale())[0]) # sets the songcover
-                try: # tries to update the progressbar
+                try:  # tries to update the progressbar
                     self.prog_bar.setValue(int(self.timer))
                     self.prog_bar.setFormat(f"{lib.format_time(int(self.timer))} - {song_data.val[song]['duration']}")
-                except KeyError: # if playing a song not in the db anymore
-                    del self.playlist[self.counter] # stop playing the current song
+                except KeyError:  # if playing a song not in the db anymore
+                    del self.playlist[self.counter]  # stop playing the current song
                     self.counter = self.counter % len(self.playlist)
                     self.proc.stop()
 
     def play(self, file: Path):
         # adjusted to set songcover, background color and title
-        super().play(file) # actually play the song
+        super().play(file)  # actually play the song
 
-        song = file.stem # gets the songs ID
-        self.title.setText(song_data.val[song]['title']) # displays the Title of the song in the corresponding Widget
-        self.prog_bar.setRange(0, song_data.val[song]["duration_seconds"]) # and sets the progressbar to the range of the song
+        song = file.stem  # gets the songs ID
+        self.title.setText(song_data.val[song]['title'])  # displays the Title of the song in the corresponding Widget
+        self.prog_bar.setRange(0, song_data.val[song]["duration_seconds"])  # and sets the progressbar to the range of the song
 
-        cover, color = song_cover_info(song, self.get_icon_scale()) # retreives info about the current cover
-        self.Icon.setPixmap(cover) # displays the cover
+        cover, color = song_cover_info(song, self.get_icon_scale())  # retreives info about the current cover
+        self.Icon.setPixmap(cover)  # displays the cover
 
         # and fills the background with the basecolor of the cover
         colors = self.palette()
@@ -488,25 +502,25 @@ class PlayerWidget(QWidget, lib.MusicPlayer):
 def song_cover_info(song_id: str, scale=60) -> tuple[QPixmap, QColor]:
     """returns a Icon and the basecolor of the icon of the cover of a specific song"""
     # this works as YTdlp embeds thumbnails into mp3s and YTMusic thumbnails (which are rectangular) contain a quadratic cover infront of a basecolor matching the cover
-    file = lib.song_file(song_id) # gets the file for the song
-    metadata: eyed3.AudioFile = eyed3.load(file) # reads metadata about the song with eyeD3
-    image = QImage.fromData(metadata.tag.images[0].image_data) # reads the thumbnail of the mp3
-    color = image.pixelColor(1, 1) # reads the color of the topmost pixel
+    file = lib.song_file(song_id)  # gets the file for the song
+    metadata: eyed3.AudioFile = eyed3.load(file)  # reads metadata about the song with eyeD3 # type: ignore
+    image = QImage.fromData(metadata.tag.images[0].image_data)  # reads the thumbnail of the mp3 # type: ignore
+    color = image.pixelColor(1, 1)  # reads the color of the topmost pixel
     width, height = image.width(), image.height()
 
-    image = image.copy(int((width - height) / 2), 0, height, height) # the actual cover is a centere square
+    image = image.copy(int((width - height) / 2), 0, height, height)  # the actual cover is a centere square
 
-    pixmap = QPixmap.fromImage(image) # generate a Pixmap to be used in labels as Icons
+    pixmap = QPixmap.fromImage(image)  # generate a Pixmap to be used in labels as Icons
     return pixmap.scaledToHeight(scale), color
 
 
 def clear_layout(layout: QLayout):
     """deletes all Widgets from a layout"""
     for i in reversed(range(layout.count())):
-        layout.itemAt(i).widget().setParent(None)
+        layout.itemAt(i).widget().setParent(None)  # type: ignore
 
 
-def main(on_start: Callable=lambda: None):
+def main(on_start: Callable = lambda: None):
     """initialises the GUI. on_start is a callable and executed right before the mainloop"""
     # creates the QApplication
     app = QApplication(sys.argv)
@@ -516,16 +530,16 @@ def main(on_start: Callable=lambda: None):
     logging.getLogger().info(f"theme:{theme}, available={QStyleFactory.keys()}")
     if theme in QStyleFactory.keys():
         app.setStyle(theme)
-    
+
     # creates the mainwindow
     window = MainWindow()
     # and runs on_star (used to start playing immediately)
     on_start()
 
     window.show()
-    try: # runs the Qt Mainloop
+    try:  # runs the Qt Mainloop
         app.exec()
-    finally: # and stops playing music & saves everything if the window is closed
+    finally:  # and stops playing music & saves everything if the window is closed
         player.proc.stop()
         lib.data.save_all()
 

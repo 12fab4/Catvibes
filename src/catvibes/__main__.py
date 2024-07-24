@@ -124,7 +124,7 @@ def main():
             song_info = lib.yt.get_song(song)["videoDetails"]
             # also prints the current track to download
             print(f"\rdownloading {song_info['title']}", end="")
-            lib.download_song(song_info, wait=True)
+            lib.download_song(song_info)
             print(" " * (len(song_info['title']) + 13), end="")
         # adds the playlist to the playlists variable
         lib.playlists.val[file.stem] = playlist

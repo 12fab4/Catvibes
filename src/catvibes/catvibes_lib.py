@@ -141,7 +141,7 @@ class YTInterface:
     def get_search_suggestions(self, *args, **kwargs) -> list[str]:
         """returns possible search completions"""
         if self.online:
-            return self.yt.get_search_suggestions(*args, **kwargs)
+            return self.yt.get_search_suggestions(*args, **kwargs) # type: ignore
         else:
             raise self.offline_error
 
@@ -287,7 +287,7 @@ class PlaylistTab(DisplayTab):
                 self.line = len(self.playlist.val) - 1
                 self.disp()
             # download the song
-            download_song(result, wait=True, on_finished=finished)
+            download_song(result, on_finished=finished)
 
     def remove_song(self):
         """removes the selected song from the playlist"""
@@ -388,7 +388,7 @@ class Datamanager:
     def save(var: Pointer, file=Path):
         """saves a variable to a file"""
         if var.val is not None:
-            with open(file, "w") as f:
+            with open(file, "w") as f: # type: ignore
                 f.write(json.dumps(var.val, indent=4))
 
     def save_all(self):
@@ -396,7 +396,7 @@ class Datamanager:
         for i in range(len(self.files)):
             var_pointer: Pointer = self.vars[i]
             file: Path = self.files[i]
-            self.save(var_pointer, file)
+            self.save(var_pointer, file) # type: ignore
         logging.info("saved all files")
 
     @staticmethod
@@ -415,7 +415,7 @@ class MusicPlayer:
     def __init__(self) -> None:
         self.playlist: list[Path] = [] # the list of files to play
         self.counter: int = -1 # current position in the songqueue
-        self.proc: vlc.MediaPlayer = vlc.MediaPlayer() # the actual Musicplayer
+        self.proc: vlc.MediaPlayer = vlc.MediaPlayer() # the actual Musicplayer # type: ignore 
         self.playing: bool = False # playing or paused
 
     @property
@@ -577,7 +577,7 @@ def search(screen) -> dict[str, Any] | None:
         return
 
     # presents the user with some pretty choices based on the results of the query
-    choice: list[str] = list(map(song_string, results))
+    choices: list[str] = list(map(song_string, results))
     chosen = inputchoice(screen, choices)
     if chosen == -1:
         return
